@@ -2,18 +2,15 @@ package gotemplate
 
 import (
 	"errors"
-	"fmt"
-	"reflect"
 	"regexp"
 	"strings"
 	"sync"
-
-	"gitee.com/llyb120/goscript"
 )
 
 type SqlRender struct {
-	engine *TemplateEngine
-	sqlMap *sqlBlocks
+	engine     *TemplateEngine
+	sqlMap     *sqlBlocks
+	sqlContext *sqlContext
 }
 
 type sqlBlocks struct {
@@ -61,12 +58,13 @@ func (t *SqlRender) handleCommand(sql string) string {
 	sql = spaceRegex.ReplaceAllString(sql, " ")
 	command := regexp.MustCompile(`^(.*?)\s*(\bby\b.*?)?(\bwhen\b.*?)?$`)
 	re := regexp.MustCompile(`(?m)(.*?)--#\s*([^\n]+)`)
+	eatRe := regexp.MustCompile(`('.*?'|".*?"|[\d\.]+)\s*,?\s*$`)
 	return re.ReplaceAllStringFunc(sql, func(s string) string {
 		var pre, middle, post string
 		// 指令语句
 		matches := re.FindAllStringSubmatch(s, 1)
 		// 这里不用判断，一定可以匹配到
-		middle = matches[0][1] + " \n"
+		middle = matches[0][1]
 		parts := strings.Split(matches[0][2], "$$")
 		for _, part := range parts {
 			part := strings.TrimSpace(part)
@@ -82,6 +80,7 @@ func (t *SqlRender) handleCommand(sql string) string {
 			}
 			// 处理第一个指令
 			var mainCommand string
+			var eatTail bool
 			if commandSubMatch[0][1] != "" {
 				// 如果以？结尾
 				commandSubMatch[0][1] = strings.TrimSpace(commandSubMatch[0][1])
@@ -93,58 +92,46 @@ func (t *SqlRender) handleCommand(sql string) string {
 
 				if strings.HasPrefix(commandSubMatch[0][1], "val ") {
 					mainCommand = "{{ val(" + commandSubMatch[0][1][4:] + ") }}"
+					eatTail = true
 				} else if strings.HasPrefix(commandSubMatch[0][1], "each ") {
 					mainCommand = "{{ each(" + commandSubMatch[0][1][5:] + ") }}"
+					eatTail = true
 				}
 
 				if mainCommand == "" {
 					mainCommand = "{{" + commandSubMatch[0][1] + "}}"
 				}
 			}
+
 			// 使用by的情况
 			if commandSubMatch[0][2] != "" {
 				if strings.HasPrefix(commandSubMatch[0][2], "by") {
 					willBeReplaced := strings.TrimSpace(commandSubMatch[0][2][2:])
 					middle = strings.ReplaceAll(middle, willBeReplaced, mainCommand)
 				}
+			} else {
+				// 否则 val 和 each 需要向前吞噬
+				if eatTail {
+					middle = eatRe.ReplaceAllStringFunc(middle, func(s string) string {
+						s = strings.TrimSpace(s)
+						if strings.HasSuffix(s, ",") {
+							return mainCommand + ","
+						} else {
+							return mainCommand
+						}
+					})
+				}
 			}
 		}
-		// 特殊指令语句
 
-		// 一般语句
-
-		fmt.Println(matches)
+		if middle != "" {
+			middle += " \n"
+		}
 		return pre + middle + post
 	})
 }
 
-func (t *SqlRender) registerStandardFunctions() map[string]any {
-	return (map[string]any{
-		"val": func(args ...interface{}) interface{} {
-			if len(args) != 1 {
-				return nil
-			}
-			return args[0]
-		},
-		"each": func(args ...interface{}) interface{} {
-			if len(args) != 1 {
-				return nil
-			}
-			return args[0]
-		},
-		"exist": func(arg any) bool {
-			if arg == nil || arg == goscript.Undefined {
-				return false
-			}
-			if reflect.TypeOf(arg).Kind() == reflect.Map || reflect.TypeOf(arg).Kind() == reflect.Slice {
-				return reflect.ValueOf(arg).Len() > 0
-			}
-			return true
-		},
-	})
-}
-
-func (t *SqlRender) GetSql(title, subTitle string, data any) (string, error) {
+func (t *SqlRender) GetSql(title, subTitle string, data any) (string, []any, error) {
 	var sql = (func() string {
 		t.sqlMap.RLock()
 		defer t.sqlMap.RUnlock()
@@ -156,18 +143,25 @@ func (t *SqlRender) GetSql(title, subTitle string, data any) (string, error) {
 		return ""
 	})()
 	if sql == "" {
-		return "", errors.New("sql not found")
+		return "", nil, errors.New("sql not found")
 	}
-	return t.engine.Render(sql, data)
+	var params = make([]any, 0)
+	t.sqlContext.SetContext(&params)
+	defer t.sqlContext.CleanContext()
+	sql, err := t.engine.Render(sql, data)
+	if err != nil {
+		return "", nil, err
+	}
+	return sql, params, nil
 }
 
 func NewSqlRender() *SqlRender {
 	sqlRender := &SqlRender{
-		// engine: NewTemplateEngine(),
+		sqlContext: &sqlContext{},
 		sqlMap: &sqlBlocks{
 			blocks: map[string]map[string]string{},
 		},
 	}
-	sqlRender.engine = NewTemplateEngine(sqlRender.registerStandardFunctions())
+	sqlRender.engine = NewTemplateEngine(sqlRender.lib())
 	return sqlRender
 }

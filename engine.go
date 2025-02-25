@@ -74,6 +74,13 @@ func (t *TemplateEngine) preHandle(content string) string {
 		// builder.WriteString(fmt.Sprintf(`builder.WriteString("%s")`, content[index[2]:index[3]]))
 		pos = index[1]
 	}
+	// 如果还有尾部
+	if pos < len(content) {
+		staticContent := content[pos:]
+		// 对staticContent进行转义
+		staticContent = strings.ReplaceAll(staticContent, "`", `\`+"`")
+		builder.WriteString(fmt.Sprintf("code.WriteString(`%s`) \n", staticContent))
+	}
 	builder.WriteString("return code.String() \n")
 	return builder.String()
 }
