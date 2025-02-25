@@ -91,16 +91,6 @@ func (t *TemplateEngine) preHandle(content string) string {
 		pos = index[1]
 	}
 	builder.WriteString("return code.String() \n")
-	code := builder.String()
-	fmt.Println(code)
-	// fmt.Println(indexes, ss)
-	// blocks := map[string]string{}
-	// for _, index := range indexes {
-	// 	blocks[strings.TrimSpace(content[index[2]:index[3]])] = strings.TrimSpace(content[index[4]:index[5]])
-	// }
-	// return blocks
-	// 	blocks[strings.TrimSpace(match[1])] = strings.TrimSpace(match[2])
-	// }
 	return builder.String()
 }
 
