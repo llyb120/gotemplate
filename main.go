@@ -2,22 +2,16 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
 	"gitee.com/llyb120/goscript"
-	"golang.org/x/sync/errgroup"
 )
 
 type TemplateEngine struct {
 	interpreter *goscript.Interpreter
+	parsedCache *parsedCache
 }
-
-// func (t *TemplateEngine) Render(template string, data any) (string, error) {
-// 	return t.interpreter.Interpret(template, data)
-// }
 
 type ScanHandler func(fileName string, content string)
 
@@ -32,30 +26,70 @@ func (t *TemplateEngine) handleSingleFile(fileName string, content string) {
 	blocks := map[string]string{}
 	for _, match := range matches {
 		blocks[strings.TrimSpace(match[1])] = strings.TrimSpace(match[2])
-		// fmt.Println(match[1])
-		// fmt.Println(match[2])
 	}
-	// re.ReplaceAllStringFunc(content, func(match string) string {
-	// 	fmt.Println(match)
-	// 	return ""
-	// })
-	fmt.Println(blocks)
-
 }
 
-func (t *TemplateEngine) Render(template string, data any) (string, error) {
+func (t *TemplateEngine) Render(template string, data any) {
 	// 模板预处理
 	inter := goscript.NewInterpreter()
 	inter.BindGlobalObject(data)
-	return t.preHandle(template), nil
-	// return inter.Interpret(template)
+	code := t.parsedCache.GetIfNotExist(template, func() string {
+		return t.preHandle(template)
+	})
+	if code == "" {
+		fmt.Println("template is not parsed")
+		return
+	}
+	// string package
+	result, err := inter.Interpret(code)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(result)
+	// return result, nil
 }
 
 func (t *TemplateEngine) preHandle(content string) string {
 	re := regexp.MustCompile(`(?s)\{\{(.*?)\}\}`)
+	// 0 - 1 out start end
+	// 2 - 3 command start end
+	ctrlStmtReg := regexp.MustCompile(`^(\bif\b|\bfor\b|\belse\b)`)
 	indexes := re.FindAllStringSubmatchIndex(content, -1)
-	ss := re.FindAllStringSubmatch(content, -1)
-	fmt.Println(indexes, ss)
+	// ss := re.FindAllStringSubmatch(content, -1)
+	var builder strings.Builder
+	builder.WriteString("var code strings.Builder \n")
+	var pos = 0
+	for _, index := range indexes {
+		staticContent := content[pos:index[0]]
+		// 对staticContent进行转义
+		staticContent = strings.ReplaceAll(staticContent, "`", `\`+"`")
+		builder.WriteString(fmt.Sprintf("code.WriteString(`%s`) \n", staticContent))
+		sourceCommand := content[index[2]:index[3]]
+		command := strings.TrimSpace(sourceCommand)
+		if strings.Contains(sourceCommand, "\n") {
+			builder.WriteString(sourceCommand)
+			builder.WriteString("\n")
+		} else if ctrlStmtReg.MatchString(command) {
+			// 特殊处理else
+			if command == "else" {
+				builder.WriteString("} else {\n")
+			} else {
+				builder.WriteString(fmt.Sprintf("%s {\n", command))
+			}
+		} else if strings.HasPrefix(command, "end") {
+			builder.WriteString("} \n")
+		} else {
+			builder.WriteString(fmt.Sprintf("code.WriteString(fmt.Sprintf(\"%%v\",%s)) \n", content[index[2]:index[3]]))
+		}
+		builder.WriteString(" \n")
+		// builder.WriteString(fmt.Sprintf(`builder.WriteString("%s")`, content[index[2]:index[3]]))
+		pos = index[1]
+	}
+	builder.WriteString("return code.String() \n")
+	code := builder.String()
+	fmt.Println(code)
+	// fmt.Println(indexes, ss)
 	// blocks := map[string]string{}
 	// for _, index := range indexes {
 	// 	blocks[strings.TrimSpace(content[index[2]:index[3]])] = strings.TrimSpace(content[index[4]:index[5]])
@@ -63,51 +97,62 @@ func (t *TemplateEngine) preHandle(content string) string {
 	// return blocks
 	// 	blocks[strings.TrimSpace(match[1])] = strings.TrimSpace(match[2])
 	// }
-	return content
+	return builder.String()
 }
 
 func NewTemplateEngine() *TemplateEngine {
 	return &TemplateEngine{
 		interpreter: goscript.NewInterpreter(),
+		parsedCache: NewParsedCache(),
 	}
 }
 
 func main() {
-	dir := "D:\\project\\intelligence-pc-backend\\services\\tables"
 	engine := NewTemplateEngine()
-	var g errgroup.Group
-	engine.Scan(func(handler ScanHandler) {
-		filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.IsDir() {
-				return nil
-			}
-			if !strings.HasSuffix(path, ".md") {
-				return nil
-			}
-			g.Go(func() error {
-				content, err := os.ReadFile(path)
-				if err != nil {
-					return err
-				}
-				handler(path, string(content))
-				return nil
-			})
-			return nil
-		})
-	})
-	if err := g.Wait(); err != nil {
-		fmt.Println(err)
-	}
+	// var g errgroup.Group
+	// engine.Scan(func(handler ScanHandler) {
+	// 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		if info.IsDir() {
+	// 			return nil
+	// 		}
+	// 		if !strings.HasSuffix(path, ".md") {
+	// 			return nil
+	// 		}
+	// 		g.Go(func() error {
+	// 			content, err := os.ReadFile(path)
+	// 			if err != nil {
+	// 				return err
+	// 			}
+	// 			handler(path, string(content))
+	// 			return nil
+	// 		})
+	// 		return nil
+	// 	})
+	// })
+	// if err := g.Wait(); err != nil {
+	// 	fmt.Println(err)
+	// }
 
 	template := `
-		{{a}} holy
-		{{ if b > 0 }}
-		 123321
+	{{
+		var a = 2
+		fmt.Println(a)
+	}}
+
+	{{a}} holy
+
+	{{ for i := 0; i < 10; i++ }}
+		{{ if i % 2 == 0 }}
+			{{i}}-{{i + 1}}
+		{{ else }}
+			{{i}}
 		{{end}}
+	{{end}}
 	`
+
 	engine.Render(template, map[string]interface{}{
 		"a": 1,
 		"b": 2,
