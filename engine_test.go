@@ -6,32 +6,6 @@ import (
 
 func main() {
 	engine := NewTemplateEngine()
-	// var g errgroup.Group
-	// engine.Scan(func(handler ScanHandler) {
-	// 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		if info.IsDir() {
-	// 			return nil
-	// 		}
-	// 		if !strings.HasSuffix(path, ".md") {
-	// 			return nil
-	// 		}
-	// 		g.Go(func() error {
-	// 			content, err := os.ReadFile(path)
-	// 			if err != nil {
-	// 				return err
-	// 			}
-	// 			handler(path, string(content))
-	// 			return nil
-	// 		})
-	// 		return nil
-	// 	})
-	// })
-	// if err := g.Wait(); err != nil {
-	// 	fmt.Println(err)
-	// }
 
 	template := `
 	{{

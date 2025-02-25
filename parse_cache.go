@@ -7,12 +7,6 @@ type parsedCache struct {
 	cache map[string]string
 }
 
-func NewParsedCache() *parsedCache {
-	return &parsedCache{
-		cache: make(map[string]string),
-	}
-}
-
 func (c *parsedCache) GetIfNotExist(key string, fn func() string) string {
 	res := (func() string {
 		c.RLock()

@@ -14,22 +14,6 @@ type TemplateEngine struct {
 	parsedCache *parsedCache
 }
 
-type ScanHandler func(fileName string, content string)
-
-func (t *TemplateEngine) Scan(scanFn func(handler ScanHandler)) error {
-	scanFn(t.handleSingleFile)
-	return nil
-}
-
-func (t *TemplateEngine) handleSingleFile(fileName string, content string) {
-	re := regexp.MustCompile("(?is)##(.*?)\n.*?```sql(.*?)```")
-	matches := re.FindAllStringSubmatch(content, -1)
-	blocks := map[string]string{}
-	for _, match := range matches {
-		blocks[strings.TrimSpace(match[1])] = strings.TrimSpace(match[2])
-	}
-}
-
 func (t *TemplateEngine) Render(template string, data any) (string, error) {
 	// 模板预处理
 	inter := goscript.NewInterpreter()
@@ -97,6 +81,8 @@ func (t *TemplateEngine) preHandle(content string) string {
 func NewTemplateEngine() *TemplateEngine {
 	return &TemplateEngine{
 		interpreter: goscript.NewInterpreter(),
-		parsedCache: NewParsedCache(),
+		parsedCache: &parsedCache{
+			cache: make(map[string]string),
+		},
 	}
 }
