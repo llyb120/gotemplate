@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+
+	"gitee.com/llyb120/goscript"
 )
 
 type SqlRender struct {
@@ -116,8 +118,8 @@ func (t *SqlRender) handleCommand(sql string) string {
 	})
 }
 
-func (t *SqlRender) registerStandardFunctions() {
-	t.engine.BindFunctions(map[string]any{
+func (t *SqlRender) registerStandardFunctions() map[string]any {
+	return (map[string]any{
 		"val": func(args ...interface{}) interface{} {
 			if len(args) != 1 {
 				return nil
@@ -131,7 +133,7 @@ func (t *SqlRender) registerStandardFunctions() {
 			return args[0]
 		},
 		"exist": func(arg any) bool {
-			if arg == nil {
+			if arg == nil || arg == goscript.Undefined {
 				return false
 			}
 			if reflect.TypeOf(arg).Kind() == reflect.Map || reflect.TypeOf(arg).Kind() == reflect.Slice {
@@ -161,11 +163,11 @@ func (t *SqlRender) GetSql(title, subTitle string, data any) (string, error) {
 
 func NewSqlRender() *SqlRender {
 	sqlRender := &SqlRender{
-		engine: NewTemplateEngine(),
+		// engine: NewTemplateEngine(),
 		sqlMap: &sqlBlocks{
 			blocks: map[string]map[string]string{},
 		},
 	}
-	sqlRender.registerStandardFunctions()
+	sqlRender.engine = NewTemplateEngine(sqlRender.registerStandardFunctions())
 	return sqlRender
 }

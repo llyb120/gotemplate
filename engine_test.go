@@ -1,11 +1,12 @@
 package gotemplate
 
 import (
+	"fmt"
 	"testing"
 )
 
 func main() {
-	engine := NewTemplateEngine()
+	engine := NewTemplateEngine(nil)
 
 	template := `
 	{{
@@ -24,10 +25,11 @@ func main() {
 	{{end}}
 	`
 
-	engine.Render(template, map[string]interface{}{
+	res, _ := engine.Render(template, map[string]interface{}{
 		"a": 1,
 		"b": 2,
 	})
+	fmt.Println(res)
 }
 
 func TestTemplateEngine_Render(t *testing.T) {

@@ -12,17 +12,12 @@ import (
 type TemplateEngine struct {
 	interpreter *goscript.Interpreter
 	parsedCache *parsedCache
-	funcs       map[string]any
 }
 
 func (t *TemplateEngine) Render(template string, data any) (string, error) {
 	// 模板预处理
-	inter := goscript.NewInterpreter()
+	inter := t.interpreter.Fork()
 	inter.BindGlobalObject(data)
-	// 绑定方法
-	for k, v := range t.funcs {
-		inter.BindFunction(k, v)
-	}
 	code := t.parsedCache.GetIfNotExist(template, func() string {
 		return t.preHandle(template)
 	})
@@ -83,13 +78,9 @@ func (t *TemplateEngine) preHandle(content string) string {
 	return builder.String()
 }
 
-func (t *TemplateEngine) BindFunctions(fns map[string]any) {
-	t.funcs = fns
-}
-
-func NewTemplateEngine() *TemplateEngine {
+func NewTemplateEngine(scope map[string]any) *TemplateEngine {
 	return &TemplateEngine{
-		interpreter: goscript.NewInterpreter(),
+		interpreter: goscript.NewInterpreterWithSharedScope(scope),
 		parsedCache: &parsedCache{
 			cache: make(map[string]string),
 		},

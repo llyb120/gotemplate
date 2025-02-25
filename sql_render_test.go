@@ -43,7 +43,6 @@ func TestSqlRender_Scan(t *testing.T) {
 
 	sql, err := sqlRender.GetSql("test", "sql1", map[string]any{
 		"x":   "foo",
-		"y":   "bar",
 		"abc": 3,
 		"a":   4,
 	})
