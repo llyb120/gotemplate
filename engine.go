@@ -1,6 +1,7 @@
-package main
+package gotemplate
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -29,7 +30,7 @@ func (t *TemplateEngine) handleSingleFile(fileName string, content string) {
 	}
 }
 
-func (t *TemplateEngine) Render(template string, data any) {
+func (t *TemplateEngine) Render(template string, data any) (string, error) {
 	// 模板预处理
 	inter := goscript.NewInterpreter()
 	inter.BindGlobalObject(data)
@@ -37,17 +38,20 @@ func (t *TemplateEngine) Render(template string, data any) {
 		return t.preHandle(template)
 	})
 	if code == "" {
-		fmt.Println("template is not parsed")
-		return
+		return "", errors.New("template is not parsed")
 	}
 	// string package
 	result, err := inter.Interpret(code)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return "", err
 	}
-	fmt.Println(result)
-	// return result, nil
+	if result == nil {
+		return "", errors.New("result is nil")
+	}
+	if resultStr, ok := result.(string); ok {
+		return resultStr, nil
+	}
+	return "", errors.New("result is not a string")
 }
 
 func (t *TemplateEngine) preHandle(content string) string {
@@ -105,56 +109,4 @@ func NewTemplateEngine() *TemplateEngine {
 		interpreter: goscript.NewInterpreter(),
 		parsedCache: NewParsedCache(),
 	}
-}
-
-func main() {
-	engine := NewTemplateEngine()
-	// var g errgroup.Group
-	// engine.Scan(func(handler ScanHandler) {
-	// 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		if info.IsDir() {
-	// 			return nil
-	// 		}
-	// 		if !strings.HasSuffix(path, ".md") {
-	// 			return nil
-	// 		}
-	// 		g.Go(func() error {
-	// 			content, err := os.ReadFile(path)
-	// 			if err != nil {
-	// 				return err
-	// 			}
-	// 			handler(path, string(content))
-	// 			return nil
-	// 		})
-	// 		return nil
-	// 	})
-	// })
-	// if err := g.Wait(); err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	template := `
-	{{
-		var a = 2
-		fmt.Println(a)
-	}}
-
-	{{a}} holy
-
-	{{ for i := 0; i < 10; i++ }}
-		{{ if i % 2 == 0 }}
-			{{i}}-{{i + 1}}
-		{{ else }}
-			{{i}}
-		{{end}}
-	{{end}}
-	`
-
-	engine.Render(template, map[string]interface{}{
-		"a": 1,
-		"b": 2,
-	})
 }

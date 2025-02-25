@@ -1,4 +1,4 @@
-package main
+package gotemplate
 
 import "sync"
 
@@ -11,18 +11,6 @@ func NewParsedCache() *parsedCache {
 	return &parsedCache{
 		cache: make(map[string]string),
 	}
-}
-
-func (c *parsedCache) Get(key string) string {
-	c.RLock()
-	defer c.RUnlock()
-	return c.cache[key]
-}
-
-func (c *parsedCache) Set(key string, value string) {
-	c.Lock()
-	defer c.Unlock()
-	c.cache[key] = value
 }
 
 func (c *parsedCache) GetIfNotExist(key string, fn func() string) string {
