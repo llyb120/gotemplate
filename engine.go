@@ -12,12 +12,17 @@ import (
 type TemplateEngine struct {
 	interpreter *goscript.Interpreter
 	parsedCache *parsedCache
+	funcs       map[string]any
 }
 
 func (t *TemplateEngine) Render(template string, data any) (string, error) {
 	// 模板预处理
 	inter := goscript.NewInterpreter()
 	inter.BindGlobalObject(data)
+	// 绑定方法
+	for k, v := range t.funcs {
+		inter.BindFunction(k, v)
+	}
 	code := t.parsedCache.GetIfNotExist(template, func() string {
 		return t.preHandle(template)
 	})
@@ -76,6 +81,10 @@ func (t *TemplateEngine) preHandle(content string) string {
 	}
 	builder.WriteString("return code.String() \n")
 	return builder.String()
+}
+
+func (t *TemplateEngine) BindFunctions(fns map[string]any) {
+	t.funcs = fns
 }
 
 func NewTemplateEngine() *TemplateEngine {

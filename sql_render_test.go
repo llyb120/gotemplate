@@ -12,7 +12,7 @@ import (
 
 func TestSqlRender_Scan(t *testing.T) {
 	var g errgroup.Group
-	dir := ""
+	dir := "./examples"
 	sqlRender := NewSqlRender()
 	if err := sqlRender.Scan(func(handler ScanHandler) error {
 		return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -41,5 +41,12 @@ func TestSqlRender_Scan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println("ok")
+	sql, err := sqlRender.GetSql("test", "sql1", map[string]any{
+		"x":   "foo",
+		"y":   "bar",
+		"abc": 3,
+		"a":   4,
+	})
+
+	fmt.Println(sql, err)
 }
