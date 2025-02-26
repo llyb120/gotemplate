@@ -6,12 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"golang.org/x/sync/errgroup"
 )
 
 func TestSqlRender_Scan(t *testing.T) {
-	var g errgroup.Group
+	var g ErrGroup
 	dir := "./examples"
 	sqlRender := NewSqlRender()
 	if err := sqlRender.Scan(func(handler ScanHandler) error {

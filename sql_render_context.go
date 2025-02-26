@@ -3,20 +3,29 @@ package gotemplate
 import (
 	"sync"
 
-	"gvisor.dev/gvisor/pkg/goid"
+	"gitee.com/llyb120/goscript"
+	"github.com/petermattis/goid"
 )
 
 type sqlContext struct {
 	sync.Map
 }
-
-func (ctx *sqlContext) SetContext(params *[]any) {
-	ctx.Store(goid.Get(), params)
+type sqlContextItem struct {
+	fromTitle       string
+	params          []any
+	hooks           map[string]string
+	inter           *goscript.Interpreter
+	currentUseScope string
+	err             error
 }
 
-func (ctx *sqlContext) GetContext() *[]any {
+func (ctx *sqlContext) SetContext(sqlContextItem *sqlContextItem) {
+	ctx.Store(goid.Get(), sqlContextItem)
+}
+
+func (ctx *sqlContext) GetContext() *sqlContextItem {
 	if ctx, ok := ctx.Load(goid.Get()); ok {
-		return ctx.(*[]any)
+		return ctx.(*sqlContextItem)
 	}
 	return nil
 }
