@@ -90,7 +90,14 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 						// 对所有指令进行转义，否则会出错
 						encodeCode(&content)
 						if cmdType == "hook" {
-							hookBlocks = append(hookBlocks, fmt.Sprintf("{{ \n hook(`%s`, `%s`) \n}}\n", cmdArgs, content))
+							arr := strings.Split(cmdArgs, ".")
+							var hookName string
+							if len(arr) == 1 {
+								hookName = "default." + arr[0]
+							} else {
+								hookName = arr[0] + "." + arr[1]
+							}
+							hookBlocks = append(hookBlocks, fmt.Sprintf("{{ \n hook(`%s`, `%s`) \n}}\n", hookName, content))
 						} else if cmdType == "slot" {
 							builder.WriteString(fmt.Sprintf("{{ \n __code__.WriteString(slot(`%s`, `%s`) ) \n}}\n", cmdArgs, content))
 						}
@@ -106,13 +113,25 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 			}
 		case "use":
 			// 如果指定了别名
+			var alias, main, sub string
 			index := strings.Index(cmdArgs, " as ")
 			if index != -1 {
-				alias := strings.TrimSpace(cmdArgs[index+4:])
-				builder.WriteString(fmt.Sprintf("{{ use(`%s`,`%s`) }} \n", alias, strings.TrimSpace(cmdArgs[:index])))
+				alias = strings.TrimSpace(cmdArgs[index+4:])
+				cmdArgs = strings.TrimSpace(cmdArgs[:index])
 			} else {
-				builder.WriteString(fmt.Sprintf("{{ use(`default`,`%s`) }} \n", cmdArgs))
+				alias = "default"
 			}
+			arr := strings.Split(cmdArgs, ".")
+			if len(arr) == 1 {
+				// 本文件
+				main = ""
+				sub = arr[0]
+			} else {
+				// 其他文件
+				main = arr[0]
+				sub = arr[1]
+			}
+			builder.WriteString(fmt.Sprintf("{{ use(`%s`,`%s`,`%s`) }} \n", alias, main, sub))
 		default:
 			builder.WriteString(fmt.Sprintf("{{ %s %s }} \n", cmdType, cmdArgs))
 		}
@@ -141,7 +160,7 @@ func (t *SqlRender) handleCommand(sql *string) {
 		// 指令语句
 		matches := re.FindAllStringSubmatch(s, 1)
 		// 这里不用判断，一定可以匹配到
-		middle = matches[0][1]
+		middle = strings.TrimSpace(matches[0][1])
 		if middle == "" {
 			// 行指令不该由你处理
 			return s
@@ -166,17 +185,27 @@ func (t *SqlRender) handleCommand(sql *string) {
 			if commandSubMatch[0][1] != "" {
 				// 如果以？结尾
 				commandSubMatch[0][1] = strings.TrimSpace(commandSubMatch[0][1])
-				if strings.HasSuffix(commandSubMatch[0][1], "?") {
-					pre += "{{ if exist(" + commandSubMatch[0][1][:len(commandSubMatch[0][1])-1] + ") }} \n"
-					post += "{{ end }} \n"
-					commandSubMatch[0][1] = commandSubMatch[0][1][:len(commandSubMatch[0][1])-1]
-				}
+				leftCommand := commandSubMatch[0][1]
 
 				if strings.HasPrefix(commandSubMatch[0][1], "val ") {
-					mainCommand = "{{ val(" + commandSubMatch[0][1][4:] + ") }}"
+					leftCommand = leftCommand[4:]
+					if strings.HasSuffix(leftCommand, "?") {
+						pre += "{{ if exist(" + leftCommand[:len(leftCommand)-1] + ") }} \n"
+						post += "{{ end }} \n"
+						// 去掉？
+						leftCommand = leftCommand[:len(leftCommand)-1]
+					}
+					mainCommand = "{{ val(" + leftCommand + ") }}"
 					eatTail = true
 				} else if strings.HasPrefix(commandSubMatch[0][1], "each ") {
-					mainCommand = "{{ each(" + commandSubMatch[0][1][5:] + ") }}"
+					leftCommand = leftCommand[5:]
+					if strings.HasSuffix(leftCommand, "?") {
+						pre += "{{ if exist(" + leftCommand[:len(leftCommand)-1] + ") }} \n"
+						post += "{{ end }} \n"
+						// 去掉？
+						leftCommand = leftCommand[:len(leftCommand)-1]
+					}
+					mainCommand = "{{ each(" + leftCommand + ") }}"
 					eatTail = true
 				}
 

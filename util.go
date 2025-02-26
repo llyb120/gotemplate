@@ -30,9 +30,9 @@ func encodeCode(content *string) {
 func decodeCode(content *string) {
 	re := regexp.MustCompile(`@\{|@\}`)
 	*content = re.ReplaceAllStringFunc(*content, func(s string) string {
-		if s == "@{`" {
+		if s == "@{" {
 			return "{{"
-		} else if s == "`@}" {
+		} else if s == "@}" {
 			return "}}"
 		}
 		return s
