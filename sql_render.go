@@ -31,8 +31,8 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 	matches := re.FindAllStringSubmatch(content, 1)
 	if len(matches) == 0 {
 		// 没有标题的直接忽略
-		return nil
-		//return errors.New("no title found")
+		// return nil
+		return fmt.Errorf("%s 没有找到标题", fileName)
 	}
 	title := strings.TrimSpace(matches[0][1])
 	// 获得二级标题指向的sql
@@ -46,7 +46,9 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 	for _, match := range matches {
 		subTitle := strings.TrimSpace(match[1])
 		sql := strings.TrimSpace(match[2])
-		t.handleSpecialCommand(&sql)
+		if err := t.handleSpecialCommand(&sql); err != nil {
+			return err
+		}
 		t.handleCommand(&sql)
 		t.sqlMap.blocks[title][subTitle] = sql
 	}
@@ -54,7 +56,7 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 }
 
 // 处理特殊的指令
-func (t *SqlRender) handleSpecialCommand(sql *string) {
+func (t *SqlRender) handleSpecialCommand(sql *string) error {
 	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|end|for|if|else)\b(.*?)$`)
 	matches := re.FindAllStringSubmatchIndex(*sql, -1)
 	contents := re.FindAllStringSubmatch(*sql, -1)
@@ -82,17 +84,11 @@ func (t *SqlRender) handleSpecialCommand(sql *string) {
 				if endCmdType == "end" {
 					if count == 0 {
 						content := (*sql)[matches[i][1]:matches[j][0]]
-						t.handleSpecialCommand(&content)
+						if err := t.handleSpecialCommand(&content); err != nil {
+							return err
+						}
 						// 对所有指令进行转义，否则会出错
-						re := regexp.MustCompile(`\{\{|\}\}`)
-						content = re.ReplaceAllStringFunc(content, func(s string) string {
-							if s == "{{" {
-								return `@{`
-							} else if s == "}}" {
-								return `@}`
-							}
-							return s
-						})
+						encodeCode(&content)
 						if cmdType == "hook" {
 							hookBlocks = append(hookBlocks, fmt.Sprintf("{{ \n hook(`%s`, `%s`) \n}}\n", cmdArgs, content))
 						} else if cmdType == "slot" {
@@ -125,9 +121,10 @@ func (t *SqlRender) handleSpecialCommand(sql *string) {
 		builder.WriteString((*sql)[pos:])
 	}
 	if count != 0 {
-		fmt.Println("warn: 有未闭合的指令")
+		return errors.New("有未闭合的指令")
 	}
 	*sql = strings.Join(hookBlocks, "\n") + builder.String()
+	return nil
 }
 
 func (t *SqlRender) handleCommand(sql *string) {
@@ -243,7 +240,7 @@ func (t *SqlRender) GetSql(title, subTitle string, data any) (string, []any, err
 	if err != nil {
 		return "", nil, err
 	}
-	return sql, ctx.params, nil
+	return sql, ctx.params, ctx.err
 }
 
 func NewSqlRender() *SqlRender {
