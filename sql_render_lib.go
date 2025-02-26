@@ -47,24 +47,18 @@ func (t *SqlRender) lib() map[string]any {
 			}
 			return true
 		},
-		"use": func(alias string, template string) string {
+		"use": func(alias, main, sub string) string {
 			ctx := t.sqlContext.GetContext()
 			ctx.currentUseScope = alias
 			defer func() {
 				ctx.currentUseScope = "default"
 			}()
-			arr := strings.Split(template, ".")
-			var main, sub string
-			if len(arr) == 1 {
+			if main == "" {
 				main = ctx.fromTitle
-				sub = arr[0]
-			} else {
-				main = arr[0]
-				sub = arr[1]
 			}
 			sql := t.getSql(main, sub)
 			if sql == "" {
-				ctx.err = fmt.Errorf("没有找到模板 %s", template)
+				ctx.err = fmt.Errorf("没有找到模板 %s %s", main, sub)
 				return ""
 			}
 			res, err := t.engine.doRender(ctx.inter, sql)
