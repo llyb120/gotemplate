@@ -160,7 +160,7 @@ func (t *SqlRender) handleCommand(sql *string) {
 		// 指令语句
 		matches := re.FindAllStringSubmatch(s, 1)
 		// 这里不用判断，一定可以匹配到
-		middle = matches[0][1]
+		middle = strings.TrimSpace(matches[0][1])
 		if middle == "" {
 			// 行指令不该由你处理
 			return s
