@@ -166,17 +166,27 @@ func (t *SqlRender) handleCommand(sql *string) {
 			if commandSubMatch[0][1] != "" {
 				// 如果以？结尾
 				commandSubMatch[0][1] = strings.TrimSpace(commandSubMatch[0][1])
-				if strings.HasSuffix(commandSubMatch[0][1], "?") {
-					pre += "{{ if exist(" + commandSubMatch[0][1][:len(commandSubMatch[0][1])-1] + ") }} \n"
-					post += "{{ end }} \n"
-					commandSubMatch[0][1] = commandSubMatch[0][1][:len(commandSubMatch[0][1])-1]
-				}
+				leftCommand := commandSubMatch[0][1]
 
 				if strings.HasPrefix(commandSubMatch[0][1], "val ") {
-					mainCommand = "{{ val(" + commandSubMatch[0][1][4:] + ") }}"
+					leftCommand = leftCommand[4:]
+					if strings.HasSuffix(leftCommand, "?") {
+						pre += "{{ if exist(" + leftCommand[:len(leftCommand)-1] + ") }} \n"
+						post += "{{ end }} \n"
+						// 去掉？
+						leftCommand = leftCommand[:len(leftCommand)-1]
+					}
+					mainCommand = "{{ val(" + leftCommand + ") }}"
 					eatTail = true
 				} else if strings.HasPrefix(commandSubMatch[0][1], "each ") {
-					mainCommand = "{{ each(" + commandSubMatch[0][1][5:] + ") }}"
+					leftCommand = leftCommand[5:]
+					if strings.HasSuffix(leftCommand, "?") {
+						pre += "{{ if exist(" + leftCommand[:len(leftCommand)-1] + ") }} \n"
+						post += "{{ end }} \n"
+						// 去掉？
+						leftCommand = leftCommand[:len(leftCommand)-1]
+					}
+					mainCommand = "{{ each(" + leftCommand + ") }}"
 					eatTail = true
 				}
 
