@@ -2,6 +2,7 @@ package gotemplate
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"sync"
@@ -44,22 +45,101 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 	}
 	for _, match := range matches {
 		subTitle := strings.TrimSpace(match[1])
-		sql := t.handleCommand(strings.TrimSpace(match[2]))
+		sql := strings.TrimSpace(match[2])
+		t.handleSpecialCommand(&sql)
+		t.handleCommand(&sql)
 		t.sqlMap.blocks[title][subTitle] = sql
 	}
 	return nil
 }
 
-func (t *SqlRender) handleCommand(sql string) string {
+// 处理特殊的指令
+func (t *SqlRender) handleSpecialCommand(sql *string) {
+	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|end|for|if|else)\b(.*?)$`)
+	matches := re.FindAllStringSubmatchIndex(*sql, -1)
+	contents := re.FindAllStringSubmatch(*sql, -1)
+	_ = contents
+
+	// 记录所有hook块
+	var hookBlocks []string
+
+	// 扫描所有指令
+	var builder strings.Builder
+	pos := 0
+	count := 0
+	for i := 0; i < len(matches); i++ {
+		// 写入pos到match[0]之间的内容
+		builder.WriteString((*sql)[pos:matches[i][0]])
+		pos = matches[i][1]
+		cmdType := (*sql)[matches[i][2]:matches[i][3]]
+		cmdArgs := strings.TrimSpace((*sql)[matches[i][4]:matches[i][5]])
+		switch cmdType {
+		case "hook", "slot":
+			// 向下找到结束标识
+			count = 0
+			for j := i + 1; j < len(matches); j++ {
+				endCmdType := (*sql)[matches[j][2]:matches[j][3]]
+				if endCmdType == "end" {
+					if count == 0 {
+						content := (*sql)[matches[i][1]:matches[j][0]]
+						t.handleSpecialCommand(&content)
+						// 对所有指令进行转义，否则会出错
+						re := regexp.MustCompile(`\{\{|\}\}`)
+						content = re.ReplaceAllStringFunc(content, func(s string) string {
+							if s == "{{" {
+								return `@{`
+							} else if s == "}}" {
+								return `@}`
+							}
+							return s
+						})
+						if cmdType == "hook" {
+							hookBlocks = append(hookBlocks, fmt.Sprintf("{{ \n hook(`%s`, `%s`) \n}}\n", cmdArgs, content))
+						} else if cmdType == "slot" {
+							builder.WriteString(fmt.Sprintf("{{ \n __code__.WriteString(slot(`%s`, `%s`) ) \n}}\n", cmdArgs, content))
+						}
+						i = j
+						pos = matches[j][1]
+						break
+					} else {
+						count--
+					}
+				} else {
+					count++
+				}
+			}
+		case "use":
+			// 如果指定了别名
+			index := strings.Index(cmdArgs, " as ")
+			if index != -1 {
+				alias := strings.TrimSpace(cmdArgs[index+4:])
+				builder.WriteString(fmt.Sprintf("{{ use(`%s`,`%s`) }} \n", alias, strings.TrimSpace(cmdArgs[:index])))
+			} else {
+				builder.WriteString(fmt.Sprintf("{{ use(`default`,`%s`) }} \n", cmdArgs))
+			}
+		default:
+			builder.WriteString(fmt.Sprintf("{{ %s %s }} \n", cmdType, cmdArgs))
+		}
+	}
+	if pos < len(*sql) {
+		builder.WriteString((*sql)[pos:])
+	}
+	if count != 0 {
+		fmt.Println("warn: 有未闭合的指令")
+	}
+	*sql = strings.Join(hookBlocks, "\n") + builder.String()
+}
+
+func (t *SqlRender) handleCommand(sql *string) {
 	// prefix command
 	// prefix := `(?:\b(val|each)\b)?`
 	// 特殊空格全部转为空格
 	spaceRegex := regexp.MustCompile(`\t|\r`)
-	sql = spaceRegex.ReplaceAllString(sql, " ")
+	*sql = spaceRegex.ReplaceAllString(*sql, " ")
 	command := regexp.MustCompile(`^(.*?)\s*(\bby\b.*?)?(\bwhen\b.*?)?$`)
 	re := regexp.MustCompile(`(?m)(.*?)--#\s*([^\n]+)`)
 	eatRe := regexp.MustCompile(`('.*?'|".*?"|[\d\.]+)\s*,?\s*$`)
-	return re.ReplaceAllStringFunc(sql, func(s string) string {
+	*sql = re.ReplaceAllStringFunc(*sql, func(s string) string {
 		var pre, middle, post string
 		// 指令语句
 		matches := re.FindAllStringSubmatch(s, 1)
@@ -131,28 +211,39 @@ func (t *SqlRender) handleCommand(sql string) string {
 	})
 }
 
-func (t *SqlRender) GetSql(title, subTitle string, data any) (string, []any, error) {
-	var sql = (func() string {
-		t.sqlMap.RLock()
-		defer t.sqlMap.RUnlock()
-		if blocks, ok := t.sqlMap.blocks[title]; ok {
-			if subTitle, ok := blocks[subTitle]; ok {
-				return subTitle
-			}
+func (t *SqlRender) getSql(title, subTitle string) string {
+	t.sqlMap.RLock()
+	defer t.sqlMap.RUnlock()
+	if blocks, ok := t.sqlMap.blocks[title]; ok {
+		if subTitle, ok := blocks[subTitle]; ok {
+			return subTitle
 		}
-		return ""
-	})()
+	}
+	return ""
+}
+
+func (t *SqlRender) GetSql(title, subTitle string, data any) (string, []any, error) {
+	sql := t.getSql(title, subTitle)
 	if sql == "" {
 		return "", nil, errors.New("sql not found")
 	}
-	var params = make([]any, 0)
-	t.sqlContext.SetContext(&params)
+	ctx := &sqlContextItem{
+		fromTitle: title,
+		params:    make([]any, 0),
+		hooks:     map[string]string{},
+	}
+	t.sqlContext.SetContext(ctx)
 	defer t.sqlContext.CleanContext()
-	sql, err := t.engine.Render(sql, data)
+	inter, err := t.engine.prepareRender(sql, data)
 	if err != nil {
 		return "", nil, err
 	}
-	return sql, params, nil
+	ctx.inter = inter
+	sql, err = t.engine.doRender(inter, sql)
+	if err != nil {
+		return "", nil, err
+	}
+	return sql, ctx.params, nil
 }
 
 func NewSqlRender() *SqlRender {

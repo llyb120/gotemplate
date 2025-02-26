@@ -16,8 +16,20 @@ type TemplateEngine struct {
 
 func (t *TemplateEngine) Render(template string, data any) (string, error) {
 	// 模板预处理
+	inter, err := t.prepareRender(template, data)
+	if err != nil {
+		return "", err
+	}
+	return t.doRender(inter, template)
+}
+
+func (t *TemplateEngine) prepareRender(template string, data any) (*goscript.Interpreter, error) {
 	inter := t.interpreter.Fork()
 	inter.BindGlobalObject(data)
+	return inter, nil
+}
+
+func (t *TemplateEngine) doRender(inter *goscript.Interpreter, template string) (string, error) {
 	code := t.parsedCache.GetIfNotExist(template, func() string {
 		return t.preHandle(template)
 	})
@@ -46,13 +58,13 @@ func (t *TemplateEngine) preHandle(content string) string {
 	indexes := re.FindAllStringSubmatchIndex(content, -1)
 	// ss := re.FindAllStringSubmatch(content, -1)
 	var builder strings.Builder
-	builder.WriteString("var code strings.Builder \n")
+	builder.WriteString("var __code__ strings.Builder \n")
 	var pos = 0
 	for _, index := range indexes {
 		staticContent := content[pos:index[0]]
 		// 对staticContent进行转义
-		staticContent = strings.ReplaceAll(staticContent, "`", `\`+"`")
-		builder.WriteString(fmt.Sprintf("code.WriteString(`%s`) \n", staticContent))
+		staticContent = escapeBacktick(staticContent)
+		builder.WriteString(fmt.Sprintf("__code__.WriteString(`%s`) \n", staticContent))
 		sourceCommand := content[index[2]:index[3]]
 		command := strings.TrimSpace(sourceCommand)
 		if strings.Contains(sourceCommand, "\n") {
@@ -68,7 +80,7 @@ func (t *TemplateEngine) preHandle(content string) string {
 		} else if strings.HasPrefix(command, "end") {
 			builder.WriteString("} \n")
 		} else {
-			builder.WriteString(fmt.Sprintf("code.WriteString(fmt.Sprintf(\"%%v\",%s)) \n", content[index[2]:index[3]]))
+			builder.WriteString(fmt.Sprintf("__code__.WriteString(fmt.Sprintf(\"%%v\",%s)) \n", content[index[2]:index[3]]))
 		}
 		builder.WriteString(" \n")
 		// builder.WriteString(fmt.Sprintf(`builder.WriteString("%s")`, content[index[2]:index[3]]))
@@ -78,10 +90,10 @@ func (t *TemplateEngine) preHandle(content string) string {
 	if pos < len(content) {
 		staticContent := content[pos:]
 		// 对staticContent进行转义
-		staticContent = strings.ReplaceAll(staticContent, "`", `\`+"`")
-		builder.WriteString(fmt.Sprintf("code.WriteString(`%s`) \n", staticContent))
+		staticContent = escapeBacktick(staticContent)
+		builder.WriteString(fmt.Sprintf("__code__.WriteString(`%s`) \n", staticContent))
 	}
-	builder.WriteString("return code.String() \n")
+	builder.WriteString("return __code__.String() \n")
 	return builder.String()
 }
 
