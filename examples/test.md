@@ -29,6 +29,37 @@ before hook
     
 ```
 
+## sql2
+```sql
+select * from table1
+where 
+
+--# use foo.sql3
+
+    
+```
+
+## testSql
+```sql
+select * from abc where
+    1 = 1
+--# trim and     safe 123
+and a = 1    --# when 1 < 0
+and b = 1   --# when 1 < 0
+and c = 1    --# when 1 < 0
+and d = 1     --# when 1 < 0
+--#end
+
+```
+
+## sql4
+```sql
+update table1 set
+--# for key, value := range mp  
+    , 1231
+--# end 
+```
+
 
 ## test2
 ```sql

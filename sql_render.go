@@ -57,7 +57,7 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 
 // 处理特殊的指令
 func (t *SqlRender) handleSpecialCommand(sql *string) error {
-	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|end|for|if|else)\b(.*?)$`)
+	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(trim|use|hook|slot|end|for|if|else)\b(.*?)$`)
 	matches := re.FindAllStringSubmatchIndex(*sql, -1)
 	contents := re.FindAllStringSubmatch(*sql, -1)
 	_ = contents
@@ -76,7 +76,7 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 		cmdType := (*sql)[matches[i][2]:matches[i][3]]
 		cmdArgs := strings.TrimSpace((*sql)[matches[i][4]:matches[i][5]])
 		switch cmdType {
-		case "hook", "slot":
+		case "hook", "slot", "trim":
 			// 向下找到结束标识
 			count = 0
 			for j := i + 1; j < len(matches); j++ {
@@ -100,6 +100,13 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 							hookBlocks = append(hookBlocks, fmt.Sprintf("{{ \n hook(`%s`, `%s`) \n}}\n", hookName, content))
 						} else if cmdType == "slot" {
 							builder.WriteString(fmt.Sprintf("{{ \n __code__.WriteString(slot(`%s`, `%s`) ) \n}}\n", cmdArgs, content))
+						} else if cmdType == "trim" {
+							trimReg := `^(.*?)\s*(?:safe\s*(.*?))?$`
+							trimMatches := regexp.MustCompile(trimReg).FindAllStringSubmatch(cmdArgs, 1)
+							if len(trimMatches) == 0 {
+								return fmt.Errorf("trim 语法不正确")
+							}
+							builder.WriteString(fmt.Sprintf("{{ \n __code__.WriteString(trim(`%s`, `%s`, `%s`) ) \n}}\n", strings.TrimSpace(trimMatches[0][1]), strings.TrimSpace(trimMatches[0][2]), escapeBacktick(content)))
 						}
 						i = j
 						pos = matches[j][1]

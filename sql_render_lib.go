@@ -100,5 +100,24 @@ func (t *SqlRender) lib() map[string]any {
 			}
 			return res
 		},
+		"trim": func(target string, safe string, code string) string {
+			decodeCode(&code)
+			ctx := t.sqlContext.GetContext()
+			res, err := t.engine.doRender(ctx.inter, code)
+			if err != nil {
+				ctx.err = err
+				return ""
+			}
+			// trim target
+			res = strings.TrimSpace(res)
+			res = strings.TrimPrefix(res, target)
+			res = strings.TrimSuffix(res, target)
+
+			if strings.TrimSpace(res) == "" {
+				return " " + safe + " "
+			}
+			// if target is empty use safe statement instead
+			return " " + res + " "
+		},
 	}
 }
