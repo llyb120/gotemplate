@@ -19,6 +19,7 @@ and d = 4     --# a by 4
 before hook
 
 --# hook u2.a
+纳尼 --# when b
 --# if 1 > 0
 我是替换的slot
 --# end
