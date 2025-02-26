@@ -42,6 +42,9 @@ func (t *SqlRender) lib() map[string]any {
 			if arg == nil || arg == goscript.Undefined {
 				return false
 			}
+			if arg == false {
+				return false
+			}
 			if reflect.TypeOf(arg).Kind() == reflect.Map || reflect.TypeOf(arg).Kind() == reflect.Slice {
 				return reflect.ValueOf(arg).Len() > 0
 			}
