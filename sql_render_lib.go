@@ -100,5 +100,22 @@ func (t *SqlRender) lib() map[string]any {
 			}
 			return res
 		},
+		"trim": func(target, safe, content string) string {
+			ctx := t.sqlContext.GetContext()
+			decodeCode(&content)
+			res, err := t.engine.doRender(ctx.inter, content)
+			if err != nil {
+				ctx.err = err
+				return ""
+			}
+			res = strings.TrimSpace(res)
+			res = strings.TrimPrefix(res, target)
+			res = strings.TrimSuffix(res, target)
+			if strings.TrimSpace(res) == "" {
+				return fmt.Sprintf("\n %s \n", safe)
+			}
+			// 最后要补上空格以防报错
+			return fmt.Sprintf("\n %s \n", res)
+		},
 	}
 }

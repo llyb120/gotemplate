@@ -11,6 +11,8 @@ and b in ('') --# each arr by ''
 and c = 3     --# abc?
 and d = 4     --# a by 4
 
+--# use test2
+
 --# use foo.sql3
 
 我是分割线
@@ -34,8 +36,9 @@ before hook
 ```sql
 select * from table1
 where 
-1 = 1
+--# trim and safe 1 < 0
 --# for key, value := range mp
   and {{key}} = {{value}}
+--# end
 --# end
 ```

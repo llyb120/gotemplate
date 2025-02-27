@@ -43,11 +43,8 @@ func TestSqlRender_Scan(t *testing.T) {
 		"x":   "foo",
 		"arr": []any{"1", "2"},
 		"a":   4,
-		"mp": map[string]any{
-			"k": 1,
-			"m": 2,
-		},
-		"b": true,
+		"mp":  map[string]any{},
+		"b":   true,
 	})
 
 	fmt.Println(sql, params, err)
