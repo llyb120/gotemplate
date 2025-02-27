@@ -16,7 +16,7 @@ type SqlRender struct {
 
 type sqlBlocks struct {
 	sync.RWMutex
-	blocks map[string]map[string]string
+	blocks map[string]string
 }
 
 type ScanHandler func(fileName string, content string) error
@@ -38,11 +38,6 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 	// 获得二级标题指向的sql
 	re = regexp.MustCompile("(?is)##(.*?)\n.*?```sql(?:.*?)*\n(.*?)```")
 	matches = re.FindAllStringSubmatch(content, -1)
-	t.sqlMap.Lock()
-	if _, ok := t.sqlMap.blocks[title]; !ok {
-		t.sqlMap.blocks[title] = map[string]string{}
-	}
-	t.sqlMap.Unlock()
 	for _, match := range matches {
 		subTitle := strings.TrimSpace(match[1])
 		sql := strings.TrimSpace(match[2])
@@ -51,7 +46,7 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 			return err
 		}
 		t.sqlMap.Lock()
-		t.sqlMap.blocks[title][subTitle] = sql
+		t.sqlMap.blocks[title+":"+subTitle] = sql
 		t.sqlMap.Unlock()
 	}
 	return nil
@@ -247,10 +242,8 @@ func (t *SqlRender) handleCommand(sql *string) {
 func (t *SqlRender) getSql(title, subTitle string) string {
 	t.sqlMap.RLock()
 	defer t.sqlMap.RUnlock()
-	if blocks, ok := t.sqlMap.blocks[title]; ok {
-		if subTitle, ok := blocks[subTitle]; ok {
-			return subTitle
-		}
+	if block, ok := t.sqlMap.blocks[title+":"+subTitle]; ok {
+		return block
 	}
 	return ""
 }
@@ -283,7 +276,7 @@ func NewSqlRender() *SqlRender {
 	sqlRender := &SqlRender{
 		sqlContext: &sqlContext{},
 		sqlMap: &sqlBlocks{
-			blocks: map[string]map[string]string{},
+			blocks: map[string]string{},
 		},
 	}
 	sqlRender.engine = NewTemplateEngine(sqlRender.lib())
