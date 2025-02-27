@@ -39,10 +39,10 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 	re = regexp.MustCompile("(?is)##(.*?)\n.*?```sql(?:.*?)*\n(.*?)```")
 	matches = re.FindAllStringSubmatch(content, -1)
 	t.sqlMap.Lock()
-	defer t.sqlMap.Unlock()
 	if _, ok := t.sqlMap.blocks[title]; !ok {
 		t.sqlMap.blocks[title] = map[string]string{}
 	}
+	t.sqlMap.Unlock()
 	for _, match := range matches {
 		subTitle := strings.TrimSpace(match[1])
 		sql := strings.TrimSpace(match[2])
@@ -50,14 +50,16 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 		if err := t.handleSpecialCommand(&sql); err != nil {
 			return err
 		}
+		t.sqlMap.Lock()
 		t.sqlMap.blocks[title][subTitle] = sql
+		t.sqlMap.Unlock()
 	}
 	return nil
 }
 
 // 处理特殊的指令
 func (t *SqlRender) handleSpecialCommand(sql *string) error {
-	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|end|for|if|else)\b(.*?)$`)
+	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|trim|end|for|if|else)\b(.*?)$`)
 	matches := re.FindAllStringSubmatchIndex(*sql, -1)
 	contents := re.FindAllStringSubmatch(*sql, -1)
 	_ = contents
@@ -76,7 +78,7 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 		cmdType := (*sql)[matches[i][2]:matches[i][3]]
 		cmdArgs := strings.TrimSpace((*sql)[matches[i][4]:matches[i][5]])
 		switch cmdType {
-		case "hook", "slot":
+		case "hook", "slot", "trim":
 			// 向下找到结束标识
 			count = 0
 			for j := i + 1; j < len(matches); j++ {
@@ -89,6 +91,7 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 						}
 						// 对所有指令进行转义，否则会出错
 						encodeCode(&content)
+						escapeBacktick(&content)
 						if cmdType == "hook" {
 							arr := strings.Split(cmdArgs, ".")
 							var hookName string
@@ -100,6 +103,14 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 							hookBlocks = append(hookBlocks, fmt.Sprintf("{{ \n hook(`%s`, `%s`) \n}}\n", hookName, content))
 						} else if cmdType == "slot" {
 							builder.WriteString(fmt.Sprintf("{{ \n __code__.WriteString(slot(`%s`, `%s`) ) \n}}\n", cmdArgs, content))
+						} else if cmdType == "trim" {
+							// 分析trim指令
+							re := regexp.MustCompile(`(.*?)\s*(?:safe\s*(.*?))?$`)
+							matches := re.FindAllStringSubmatch(cmdArgs, 1)
+							if len(matches) == 0 {
+								return fmt.Errorf("trim指令格式错误")
+							}
+							builder.WriteString(fmt.Sprintf("{{ \n __code__.WriteString(trim(`%s`, `%s`, `%s`)) \n}}\n", matches[0][1], matches[0][2], content))
 						}
 						i = j
 						pos = matches[j][1]
@@ -112,26 +123,17 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 				}
 			}
 		case "use":
+			res := regexp.MustCompile(`^(?:(.*?)\.)?(.*?)\s*(?:\s+as\s+(.*?))?\s*$`).FindAllStringSubmatch(cmdArgs, 1)
 			// 如果指定了别名
 			var alias, main, sub string
-			index := strings.Index(cmdArgs, " as ")
-			if index != -1 {
-				alias = strings.TrimSpace(cmdArgs[index+4:])
-				cmdArgs = strings.TrimSpace(cmdArgs[:index])
-			} else {
+			if res[0][3] == "" {
 				alias = "default"
-			}
-			arr := strings.Split(cmdArgs, ".")
-			if len(arr) == 1 {
-				// 本文件
-				main = ""
-				sub = arr[0]
 			} else {
-				// 其他文件
-				main = arr[0]
-				sub = arr[1]
+				alias = res[0][3]
 			}
-			builder.WriteString(fmt.Sprintf("{{ use(`%s`,`%s`,`%s`) }} \n", alias, main, sub))
+			main = res[0][1]
+			sub = res[0][2]
+			builder.WriteString(fmt.Sprintf("{{\n __code__.WriteString(use(`%s`,`%s`,`%s`)) \n}} \n", alias, main, sub))
 		default:
 			builder.WriteString(fmt.Sprintf("{{ %s %s }} \n", cmdType, cmdArgs))
 		}
@@ -150,10 +152,10 @@ func (t *SqlRender) handleCommand(sql *string) {
 	// prefix command
 	// prefix := `(?:\b(val|each)\b)?`
 	// 特殊空格全部转为空格
-	spaceRegex := regexp.MustCompile(`\t|\r`)
+	spaceRegex := regexp.MustCompile(`[\t\r]`)
 	*sql = spaceRegex.ReplaceAllString(*sql, " ")
 	command := regexp.MustCompile(`^(.*?)\s*(\bby\b.*?)?(\bwhen\b.*?)?$`)
-	re := regexp.MustCompile(`(?m)(.*?)--#\s*([^\n]+)`)
+	re := regexp.MustCompile(`(?m)^(.*?)--#\s*(.*?)$`)
 	eatRe := regexp.MustCompile(`('.*?'|".*?"|[\d\.]+)\s*,?\s*$`)
 	*sql = re.ReplaceAllStringFunc(*sql, func(s string) string {
 		var pre, middle, post string

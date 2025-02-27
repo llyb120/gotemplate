@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -43,12 +44,15 @@ func TestSqlRender_Scan(t *testing.T) {
 		"x":   "foo",
 		"arr": []any{"1", "2"},
 		"a":   4,
-		"mp": map[string]any{
-			"k": 1,
-			"m": 2,
-		},
-		"b": true,
+		"mp":  map[string]any{},
+		"b":   true,
 	})
 
 	fmt.Println(sql, params, err)
+}
+
+func TestUseRegex(t *testing.T) {
+	re := regexp.MustCompile(`^(?:(.*?)\.)?(.*?)\s*(?:\s{1,}as\s{1,}(.*?))?\s*$`)
+	arr := re.FindAllStringSubmatch("pc_console_games_topcharts_base as period_data", 1)
+	t.Log(arr)
 }

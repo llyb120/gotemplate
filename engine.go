@@ -63,7 +63,7 @@ func (t *TemplateEngine) preHandle(content string) string {
 	for _, index := range indexes {
 		staticContent := content[pos:index[0]]
 		// 对staticContent进行转义
-		staticContent = escapeBacktick(staticContent)
+		escapeBacktick(&staticContent)
 		builder.WriteString(fmt.Sprintf("__code__.WriteString(`%s`) \n", staticContent))
 		sourceCommand := content[index[2]:index[3]]
 		command := strings.TrimSpace(sourceCommand)
@@ -90,7 +90,7 @@ func (t *TemplateEngine) preHandle(content string) string {
 	if pos < len(content) {
 		staticContent := content[pos:]
 		// 对staticContent进行转义
-		staticContent = escapeBacktick(staticContent)
+		escapeBacktick(&staticContent)
 		builder.WriteString(fmt.Sprintf("__code__.WriteString(`%s`) \n", staticContent))
 	}
 	builder.WriteString("return __code__.String() \n")
