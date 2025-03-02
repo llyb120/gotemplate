@@ -53,10 +53,12 @@ func (t *SqlRender) lib() map[string]any {
 				ctx.err = fmt.Errorf("没有找到模板 %s %s", main, sub)
 				return ""
 			}
+			// use 应当开启一个新的作用域
+			inter := ctx.inter.Fork()
 			for k, v := range params {
-				ctx.inter.Set(k, v)
+				inter.Set(k, v)
 			}
-			res, err := t.engine.doRender(ctx.inter, sql)
+			res, err := t.engine.doRender(inter, sql)
 			if err != nil {
 				ctx.err = err
 				return ""
