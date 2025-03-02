@@ -3,7 +3,6 @@ package gotemplate
 import (
 	"fmt"
 	"reflect"
-	"regexp"
 	"strings"
 )
 
@@ -36,16 +35,16 @@ func (t *SqlRender) lib() map[string]any {
 			}
 			return str
 		},
-		"use": func(alias, main, sub string, params map[string]any) string {
+		"use": func(main, sub string, params map[string]any, hookContext map[string]any) string {
 			ctx := t.sqlContext.GetContext()
-			var oldCurrentUseScope = ctx.currentUseScope
-			if oldCurrentUseScope == "" {
-				oldCurrentUseScope = "default"
-			}
-			ctx.currentUseScope = alias
-			defer func() {
-				ctx.currentUseScope = oldCurrentUseScope
-			}()
+			// var oldCurrentUseScope = ctx.currentUseScope
+			// if oldCurrentUseScope == "" {
+			// 	oldCurrentUseScope = "default"
+			// }
+			// ctx.currentUseScope = alias
+			// defer func() {
+			// 	ctx.currentUseScope = oldCurrentUseScope
+			// }()
 			if main == "" {
 				main = ctx.title
 			}
@@ -59,6 +58,16 @@ func (t *SqlRender) lib() map[string]any {
 			}
 			// use 应当开启一个新的作用域
 			inter := ctx.inter.Fork()
+			ctx.inter = inter
+			// prepare hooks
+			for k, v := range hookContext {
+				hook := v.(string)
+				decodeCode(&hook)
+				ctx.hooks[k] = hook
+			}
+			defer func() {
+				ctx.hooks = make(map[string]string)
+			}()
 			for k, v := range params {
 				inter.Set(k, v)
 			}
@@ -69,24 +78,11 @@ func (t *SqlRender) lib() map[string]any {
 			}
 			return res
 		},
-		"hook": func(name string, content string) string {
-			ctx := t.sqlContext.GetContext()
-			re := regexp.MustCompile(`@\{|@\}`)
-			ctx.hooks[name] = re.ReplaceAllStringFunc(content, func(s string) string {
-				if s == `@{` {
-					return `{{`
-				} else if s == `@}` {
-					return `}}`
-				}
-				return s
-			})
-			return ""
-		},
 		"slot": func(name string, self string) string {
 			ctx := t.sqlContext.GetContext()
 			var code string
 			var ok bool
-			if code, ok = ctx.hooks[ctx.currentUseScope+"."+name]; !ok {
+			if code, ok = ctx.hooks[name]; !ok {
 				// 对自身进行转义
 				decodeCode(&self)
 				code = self

@@ -16,7 +16,7 @@ type sqlContextItem struct {
 	params          []any
 	hooks           map[string]string
 	inter           *goscript.Interpreter
-	currentUseScope string
+	// currentUseScope string
 	err             error
 }
 

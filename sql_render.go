@@ -42,7 +42,7 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 		subTitle := strings.TrimSpace(match[1])
 		sql := strings.TrimSpace(match[2])
 		t.handleCommand(&sql)
-		if err := t.handleSpecialCommand(&sql); err != nil {
+		if err := t.handleSpecialCommand(&sql, nil); err != nil {
 			return err
 		}
 		t.sqlMap.Lock()
@@ -53,14 +53,14 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 }
 
 // 处理特殊的指令
-func (t *SqlRender) handleSpecialCommand(sql *string) error {
+func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error {
 	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|trim|end|for|if|else)\b(.*?)$`)
 	matches := re.FindAllStringSubmatchIndex(*sql, -1)
 	contents := re.FindAllStringSubmatch(*sql, -1)
 	_ = contents
 
 	// 记录所有hook块
-	var hookBlocks []string
+	// var hookBlocks []string
 
 	// 扫描所有指令
 	var builder strings.Builder
@@ -73,7 +73,11 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 		cmdType := (*sql)[matches[i][2]:matches[i][3]]
 		cmdArgs := strings.TrimSpace((*sql)[matches[i][4]:matches[i][5]])
 		switch cmdType {
-		case "hook", "slot", "trim":
+		case "hook", "slot", "trim", "use":
+			if cmdType == "use" {
+				str := "map[string]any{"
+				hookContext = &str
+			}
 			// 向下找到结束标识
 			count = 0
 			for j := i + 1; j < len(matches); j++ {
@@ -81,21 +85,17 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 				if endCmdType == "end" {
 					if count == 0 {
 						content := (*sql)[matches[i][1]:matches[j][0]]
-						if err := t.handleSpecialCommand(&content); err != nil {
+						if err := t.handleSpecialCommand(&content, hookContext); err != nil {
 							return err
 						}
 						// 对所有指令进行转义，否则会出错
 						encodeCode(&content)
-						escapeBacktick(&content)
+						// escapeBacktick(&content)
 						if cmdType == "hook" {
-							arr := strings.Split(cmdArgs, ".")
-							var hookName string
-							if len(arr) == 1 {
-								hookName = "default." + arr[0]
-							} else {
-								hookName = arr[0] + "." + arr[1]
+							if hookContext == nil {
+								return fmt.Errorf("hook指令必须在use指令中使用")
 							}
-							hookBlocks = append(hookBlocks, fmt.Sprintf("{{ \n hook(`%s`, `%s`) \n}}\n", hookName, content))
+							*hookContext += fmt.Sprintf("`%s`: `%s`,", cmdArgs, content)
 						} else if cmdType == "slot" {
 							builder.WriteString(fmt.Sprintf("{{ \n __code__.WriteString(slot(`%s`, `%s`) ) \n}}\n", cmdArgs, content))
 						} else if cmdType == "trim" {
@@ -106,63 +106,57 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 								return fmt.Errorf("trim指令格式错误")
 							}
 							builder.WriteString(fmt.Sprintf("{{ \n __code__.WriteString(trim(`%s`, `%s`, `%s`)) \n}}\n", matches[0][1], matches[0][2], content))
+						} else if cmdType == "use" {
+							func() {
+								p := strings.Index(cmdArgs, ":")
+								var cmdParams string
+								if p > -1 {
+									cmdParams = cmdArgs[p+1:]
+									cmdArgs = cmdArgs[:p]
+								}
+								res := regexp.MustCompile(`^(?:(.*?)\.)?(.*?)\s*$`).FindAllStringSubmatch(cmdArgs, 1)
+								// 如果指定了别名
+								var main, sub string
+								main = res[0][1]
+								sub = res[0][2]
+								var params string = "map[string]string{"
+								if p > -1 {
+									re := regexp.MustCompile(`(\w+(?:\.\w+)?)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\w+))`)
+									res := re.FindAllStringSubmatch(cmdParams, -1)
+									// params := make(map[string]string)
+									for _, match := range res {
+										key := match[1]
+										var value string
+
+										// Check which capture group has the value
+										switch {
+										case match[2] != "": // Matched double-quoted string
+											value = match[2]
+										case match[3] != "": // Matched single-quoted string
+											value = match[3]
+										case match[4] != "": // Matched unquoted value
+											value = match[4]
+										}
+										params += fmt.Sprintf("`%s`: `%s`,", key, value)
+									}
+								}
+								params += `}`
+								*hookContext += `}`
+								// fmt.Println(content)
+								// fmt.Println("12332112331")
+								builder.WriteString(fmt.Sprintf("{{\n __code__.WriteString(use(`%s`,`%s`, %s, %s)) \n}} \n", main, sub, params, *hookContext))
+							}()
 						}
 						i = j
 						pos = matches[j][1]
 						break
-					} else {
+					} else if endCmdType != "else" {
 						count--
 					}
 				} else if endCmdType != "else" {
 					count++
 				}
 			}
-		case "use":
-			p := strings.Index(cmdArgs, ":")
-			var cmdParams string
-			if p > -1 {
-				cmdParams = cmdArgs[p+1:]
-				cmdArgs = cmdArgs[:p]
-			}
-			res := regexp.MustCompile(`^(?:(.*?)\.)?(.*?)\s*$`).FindAllStringSubmatch(cmdArgs, 1)
-			// 如果指定了别名
-			var alias, main, sub string
-			//if res[0][3] == "" {
-			//	alias = "default"
-			//} else {
-			//	alias = res[0][3]
-			//}
-			main = res[0][1]
-			sub = res[0][2]
-			var params string = "map[string]string{"
-			if p > -1 {
-				re := regexp.MustCompile(`(\w+(?:\.\w+)?)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\w+))`)
-				res := re.FindAllStringSubmatch(cmdParams, -1)
-				// params := make(map[string]string)
-				for _, match := range res {
-					key := match[1]
-					var value string
-
-					// Check which capture group has the value
-					switch {
-					case match[2] != "": // Matched double-quoted string
-						value = match[2]
-					case match[3] != "": // Matched single-quoted string
-						value = match[3]
-					case match[4] != "": // Matched unquoted value
-						value = match[4]
-					}
-					if key == "as" {
-						alias = value
-					}
-					params += fmt.Sprintf("`%s`: `%s`,", key, value)
-				}
-			}
-			params += `}`
-			if alias == "" {
-				alias = "default"
-			}
-			builder.WriteString(fmt.Sprintf("{{\n __code__.WriteString(use(`%s`,`%s`,`%s`, %s)) \n}} \n", alias, main, sub, params))
 		default:
 			builder.WriteString(fmt.Sprintf("{{ %s %s }} \n", cmdType, cmdArgs))
 		}
@@ -173,7 +167,8 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 	if count != 0 {
 		return errors.New("有未闭合的指令")
 	}
-	*sql = strings.Join(hookBlocks, "\n") + builder.String()
+	*sql = builder.String()
+	// *sql = strings.Join(hookBlocks, "\n") + builder.String()
 	return nil
 }
 

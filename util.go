@@ -1,8 +1,8 @@
 package gotemplate
 
 import (
+	"encoding/base64"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"golang.org/x/sync/errgroup"
@@ -16,27 +16,36 @@ func escapeBacktick(content *string) {
 
 // 对代码进行转义
 func encodeCode(content *string) {
-	re := regexp.MustCompile(`\{\{|\}\}`)
-	*content = re.ReplaceAllStringFunc(*content, func(s string) string {
-		if s == "{{" {
-			return "@{"
-		} else if s == "}}" {
-			return "@}"
-		}
-		return s
-	})
+	// 直接base64
+	*content = base64.StdEncoding.EncodeToString([]byte(*content))
+	// re := regexp.MustCompile(`\{\{|\}\}`)
+	// *content = re.ReplaceAllStringFunc(*content, func(s string) string {
+	// 	if s == "{{" {
+	// 		return "@{"
+	// 	} else if s == "}}" {
+	// 		return "@}"
+	// 	}
+	// 	return s
+	// })
 }
 
 func decodeCode(content *string) {
-	re := regexp.MustCompile(`@\{|@\}`)
-	*content = re.ReplaceAllStringFunc(*content, func(s string) string {
-		if s == "@{" {
-			return "{{"
-		} else if s == "@}" {
-			return "}}"
-		}
-		return s
-	})
+	// 直接base64解码
+	decoded, err := base64.StdEncoding.DecodeString(*content)
+	if err != nil {
+		fmt.Println("decodeCode error", err)
+		return
+	}
+	*content = string(decoded)
+	// re := regexp.MustCompile(`@\{|@\}`)
+	// *content = re.ReplaceAllStringFunc(*content, func(s string) string {
+	// 	if s == "@{" {
+	// 		return "{{"
+	// 	} else if s == "@}" {
+	// 		return "}}"
+	// 	}
+	// 	return s
+	// })
 }
 
 // 错误组
