@@ -38,9 +38,13 @@ func (t *SqlRender) lib() map[string]any {
 		},
 		"use": func(alias, main, sub string, params map[string]any) string {
 			ctx := t.sqlContext.GetContext()
+			var oldCurrentUseScope = ctx.currentUseScope
+			if oldCurrentUseScope == "" {
+				oldCurrentUseScope = "default"
+			}
 			ctx.currentUseScope = alias
 			defer func() {
-				ctx.currentUseScope = "default"
+				ctx.currentUseScope = oldCurrentUseScope
 			}()
 			if main == "" {
 				main = ctx.title
