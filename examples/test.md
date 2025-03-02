@@ -17,7 +17,7 @@ and d = 4     --# a by 4
 
 我是分割线
 
---# use sql2 as u2
+--# use sql2: as=u2,a=3,b=4
 
 before hook
 
@@ -40,5 +40,15 @@ where
 --# for key, value := range mp
   and {{key}} = {{value}}
 --# end
+--# end
+```
+
+
+## test3
+测试自引用
+```sql
+select * from table1 {{ho}}
+--# if !ho
+    --# use self: ho=ok 
 --# end
 ```

@@ -3,7 +3,7 @@ package gotemplate
 import (
 	"sync"
 
-	"gitee.com/llyb120/goscript"
+	"github.com/llyb120/goscript"
 	"github.com/petermattis/goid"
 )
 
@@ -11,7 +11,8 @@ type sqlContext struct {
 	sync.Map
 }
 type sqlContextItem struct {
-	fromTitle       string
+	title           string
+	subTitle        string
 	params          []any
 	hooks           map[string]string
 	inter           *goscript.Interpreter

@@ -40,7 +40,7 @@ func TestSqlRender_Scan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sql, params, err := sqlRender.GetSql("test", "sql1", map[string]any{
+	sql, params, err := sqlRender.GetSql("test", "test3", map[string]any{
 		"x":   "foo",
 		"arr": []any{"1", "2"},
 		"a":   4,

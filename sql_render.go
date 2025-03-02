@@ -118,17 +118,51 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 				}
 			}
 		case "use":
-			res := regexp.MustCompile(`^(?:(.*?)\.)?(.*?)\s*(?:\s+as\s+(.*?))?\s*$`).FindAllStringSubmatch(cmdArgs, 1)
+			p := strings.Index(cmdArgs, ":")
+			var cmdParams string
+			if p > -1 {
+				cmdParams = cmdArgs[p+1:]
+				cmdArgs = cmdArgs[:p]
+			}
+			res := regexp.MustCompile(`^(?:(.*?)\.)?(.*?)\s*$`).FindAllStringSubmatch(cmdArgs, 1)
 			// 如果指定了别名
 			var alias, main, sub string
-			if res[0][3] == "" {
-				alias = "default"
-			} else {
-				alias = res[0][3]
-			}
+			//if res[0][3] == "" {
+			//	alias = "default"
+			//} else {
+			//	alias = res[0][3]
+			//}
 			main = res[0][1]
 			sub = res[0][2]
-			builder.WriteString(fmt.Sprintf("{{\n __code__.WriteString(use(`%s`,`%s`,`%s`)) \n}} \n", alias, main, sub))
+			var params string = "map[string]string{"
+			if p > -1 {
+				re := regexp.MustCompile(`(\w+(?:\.\w+)?)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\w+))`)
+				res := re.FindAllStringSubmatch(cmdParams, -1)
+				// params := make(map[string]string)
+				for _, match := range res {
+					key := match[1]
+					var value string
+
+					// Check which capture group has the value
+					switch {
+					case match[2] != "": // Matched double-quoted string
+						value = match[2]
+					case match[3] != "": // Matched single-quoted string
+						value = match[3]
+					case match[4] != "": // Matched unquoted value
+						value = match[4]
+					}
+					if key == "as" {
+						alias = value
+					}
+					params += fmt.Sprintf("`%s`: `%s`,", key, value)
+				}
+			}
+			params += `}`
+			if alias == "" {
+				alias = "default"
+			}
+			builder.WriteString(fmt.Sprintf("{{\n __code__.WriteString(use(`%s`,`%s`,`%s`, %s)) \n}} \n", alias, main, sub, params))
 		default:
 			builder.WriteString(fmt.Sprintf("{{ %s %s }} \n", cmdType, cmdArgs))
 		}
@@ -173,7 +207,7 @@ func (t *SqlRender) handleCommand(sql *string) {
 				// 使用when
 				conditionExpr := commandSubMatch[0][3][4:]
 				//fmt.Println(conditionExpr)
-				pre += "{{ if exist(" + conditionExpr + ") }} \n"
+				pre += "{{ if " + conditionExpr + " }} \n"
 				post += "{{ end }} \n"
 			}
 			// 处理第一个指令
@@ -187,7 +221,7 @@ func (t *SqlRender) handleCommand(sql *string) {
 				if strings.HasPrefix(commandSubMatch[0][1], "val ") {
 					leftCommand = leftCommand[4:]
 					if strings.HasSuffix(leftCommand, "?") {
-						pre += "{{ if exist(" + leftCommand[:len(leftCommand)-1] + ") }} \n"
+						pre += "{{ if " + leftCommand[:len(leftCommand)-1] + " }} \n"
 						post += "{{ end }} \n"
 						// 去掉？
 						leftCommand = leftCommand[:len(leftCommand)-1]
@@ -197,7 +231,7 @@ func (t *SqlRender) handleCommand(sql *string) {
 				} else if strings.HasPrefix(commandSubMatch[0][1], "each ") {
 					leftCommand = leftCommand[5:]
 					if strings.HasSuffix(leftCommand, "?") {
-						pre += "{{ if exist(" + leftCommand[:len(leftCommand)-1] + ") }} \n"
+						pre += "{{ if " + leftCommand[:len(leftCommand)-1] + " }} \n"
 						post += "{{ end }} \n"
 						// 去掉？
 						leftCommand = leftCommand[:len(leftCommand)-1]
@@ -254,9 +288,10 @@ func (t *SqlRender) GetSql(title, subTitle string, data any) (string, []any, err
 		return "", nil, errors.New("sql not found")
 	}
 	ctx := &sqlContextItem{
-		fromTitle: title,
-		params:    make([]any, 0),
-		hooks:     map[string]string{},
+		title:    title,
+		subTitle: subTitle,
+		params:   make([]any, 0),
+		hooks:    map[string]string{},
 	}
 	t.sqlContext.SetContext(ctx)
 	defer t.sqlContext.CleanContext()

@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-
-	"gitee.com/llyb120/goscript"
 )
 
 func (t *SqlRender) lib() map[string]any {
@@ -38,31 +36,25 @@ func (t *SqlRender) lib() map[string]any {
 			}
 			return str
 		},
-		"exist": func(arg any) bool {
-			if arg == nil || arg == goscript.Undefined {
-				return false
-			}
-			if arg == false || arg == 0 || arg == "" {
-				return false
-			}
-			if reflect.TypeOf(arg).Kind() == reflect.Map || reflect.TypeOf(arg).Kind() == reflect.Slice {
-				return reflect.ValueOf(arg).Len() > 0
-			}
-			return true
-		},
-		"use": func(alias, main, sub string) string {
+		"use": func(alias, main, sub string, params map[string]any) string {
 			ctx := t.sqlContext.GetContext()
 			ctx.currentUseScope = alias
 			defer func() {
 				ctx.currentUseScope = "default"
 			}()
 			if main == "" {
-				main = ctx.fromTitle
+				main = ctx.title
+			}
+			if sub == "self" {
+				sub = ctx.subTitle
 			}
 			sql := t.getSql(main, sub)
 			if sql == "" {
 				ctx.err = fmt.Errorf("没有找到模板 %s %s", main, sub)
 				return ""
+			}
+			for k, v := range params {
+				ctx.inter.Set(k, v)
 			}
 			res, err := t.engine.doRender(ctx.inter, sql)
 			if err != nil {

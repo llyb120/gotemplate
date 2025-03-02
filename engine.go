@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"gitee.com/llyb120/goscript"
+	"github.com/llyb120/goscript"
 )
 
 type TemplateEngine struct {
@@ -25,7 +25,7 @@ func (t *TemplateEngine) Render(template string, data any) (string, error) {
 
 func (t *TemplateEngine) prepareRender(template string, data any) (*goscript.Interpreter, error) {
 	inter := t.interpreter.Fork()
-	inter.BindGlobalObject(data)
+	inter.SetGlobal(data)
 	return inter, nil
 }
 
@@ -75,12 +75,25 @@ func (t *TemplateEngine) preHandle(content string) string {
 			if command == "else" {
 				builder.WriteString("} else {\n")
 			} else {
-				builder.WriteString(fmt.Sprintf("%s {\n", command))
+				if strings.HasPrefix(command, "for") {
+					builder.WriteString(fmt.Sprintf("%s {\n", command))
+				} else {
+					// if or else if
+					if strings.HasPrefix(command, "if") {
+						command = strings.TrimPrefix(command, "if")
+						builder.WriteString(fmt.Sprintf("if when(%s) {\n", command))
+					} else {
+						command = strings.TrimPrefix(command, "else")
+						command = strings.TrimLeft(command, " ")
+						command = strings.TrimPrefix(command, "if")
+						builder.WriteString(fmt.Sprintf("else if when(%s) {\n", command))
+					}
+				}
 			}
 		} else if strings.HasPrefix(command, "end") {
 			builder.WriteString("} \n")
 		} else {
-			builder.WriteString(fmt.Sprintf("__code__.WriteString(fmt.Sprintf(\"%%v\",%s)) \n", content[index[2]:index[3]]))
+			builder.WriteString(fmt.Sprintf("__code__.WriteString(fmt.Sprintf(\"%%v\",str(%s))) \n", content[index[2]:index[3]]))
 		}
 		builder.WriteString(" \n")
 		// builder.WriteString(fmt.Sprintf(`builder.WriteString("%s")`, content[index[2]:index[3]]))
@@ -98,10 +111,17 @@ func (t *TemplateEngine) preHandle(content string) string {
 }
 
 func NewTemplateEngine(scope map[string]any) *TemplateEngine {
-	return &TemplateEngine{
-		interpreter: goscript.NewInterpreterWithSharedScope(scope),
+	engine := &TemplateEngine{
+		interpreter: goscript.NewInterpreter(),
 		parsedCache: &parsedCache{
 			cache: make(map[string]string),
 		},
 	}
+	for k, v := range engine.lib() {
+		engine.interpreter.Set(k, v)
+	}
+	for key, value := range scope {
+		engine.interpreter.Set(key, value)
+	}
+	return engine
 }
