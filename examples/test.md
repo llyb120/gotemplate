@@ -25,6 +25,8 @@ before hook
 纳尼 --# when b
 --# if 1 > 0
 我是替换的slot
+--# else 
+4343
 --# end
 --# end
 
@@ -48,7 +50,9 @@ where
 测试自引用
 ```sql
 select * from table1 {{ho}}
---# if !ho
-    --# use self: ho=ok 
+--# if !ho && test()
+    --# use self: ho=ok, abc=ho_ho
+--# else
+    123321
 --# end
 ```

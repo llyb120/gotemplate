@@ -113,7 +113,7 @@ func (t *SqlRender) handleSpecialCommand(sql *string) error {
 					} else {
 						count--
 					}
-				} else {
+				} else if endCmdType != "else" {
 					count++
 				}
 			}

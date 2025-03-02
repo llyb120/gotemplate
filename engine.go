@@ -54,7 +54,7 @@ func (t *TemplateEngine) preHandle(content string) string {
 	re := regexp.MustCompile(`(?s)\{\{(.*?)\}\}`)
 	// 0 - 1 out start end
 	// 2 - 3 command start end
-	ctrlStmtReg := regexp.MustCompile(`^(\bif\b|\bfor\b|\belse\b)`)
+	ctrlStmtReg := regexp.MustCompile(`^(\bif\b|\bfor\b|\belse\b|\belse\b\s+\bif\b)`)
 	indexes := re.FindAllStringSubmatchIndex(content, -1)
 	// ss := re.FindAllStringSubmatch(content, -1)
 	var builder strings.Builder
