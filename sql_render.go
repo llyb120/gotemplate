@@ -189,7 +189,7 @@ func (t *SqlRender) handleCommand(sql *string) {
 	// 特殊空格全部转为空格
 	spaceRegex := regexp.MustCompile(`[\t\r]`)
 	*sql = spaceRegex.ReplaceAllString(*sql, " ")
-	command := regexp.MustCompile(`^(.*?)\s*(\bby\b.*?)?(\bwhen\b.*?)?$`)
+	command := regexp.MustCompile(`^(.*?)\s*(\bby\b.*?)?(\bif\b.*?)?$`)
 	re := regexp.MustCompile(`(?m)^(.*?)--#\s*(.*?)$`)
 	eatRe := regexp.MustCompile(`('.*?'|".*?"|[\d\.]+)\s*,?\s*$`)
 	*sql = re.ReplaceAllStringFunc(*sql, func(s string) string {
@@ -208,10 +208,10 @@ func (t *SqlRender) handleCommand(sql *string) {
 			part := strings.TrimSpace(part)
 			// 普通指令
 			commandSubMatch := command.FindAllStringSubmatch(part, 1)
-			// 如果使用了when
-			if commandSubMatch[0][3] != "" && strings.HasPrefix(commandSubMatch[0][3], "when") {
-				// 使用when
-				conditionExpr := commandSubMatch[0][3][4:]
+			// 如果使用了if
+			if commandSubMatch[0][3] != "" && strings.HasPrefix(commandSubMatch[0][3], "if") {
+				// 使用if
+				conditionExpr := commandSubMatch[0][3][3:]
 				//fmt.Println(conditionExpr)
 				pre += "{{ if " + conditionExpr + " }} \n"
 				post += "{{ end }} \n"
@@ -305,7 +305,7 @@ func (t *SqlRender) GetSql(title, subTitle string, data any) (string, []any, err
 	if err != nil {
 		return "", nil, err
 	}
-	ctx.inter = inter
+	ctx.inters = append(ctx.inters, inter)
 	sql, err = t.engine.doRender(inter, sql)
 	if err != nil {
 		return "", nil, err

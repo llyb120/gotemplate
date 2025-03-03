@@ -57,8 +57,12 @@ func (t *SqlRender) lib() map[string]any {
 				return ""
 			}
 			// use 应当开启一个新的作用域
-			inter := ctx.inter.Fork()
-			ctx.inter = inter
+			if len(ctx.inters) == 0 {
+				ctx.err = fmt.Errorf("没有找到模板 %s %s", main, sub)
+				return ""
+			}
+			inter := ctx.inters[len(ctx.inters)-1].Fork()
+			ctx.inters = append(ctx.inters, inter)
 			// prepare hooks
 			ctx.hooks = append(ctx.hooks, make(map[string]string))
 			for k, v := range hookContext {
@@ -71,6 +75,11 @@ func (t *SqlRender) lib() map[string]any {
 					ctx.err = fmt.Errorf("hook的作用域stack被错误弹出")
 				} else {
 					ctx.hooks = ctx.hooks[:len(ctx.hooks)-1]
+				}
+				if len(ctx.inters) == 0 {
+					ctx.err = fmt.Errorf("use的作用域stack被错误弹出")
+				} else {
+					ctx.inters = ctx.inters[:len(ctx.inters)-1]
 				}
 			}()
 			for k, v := range params {
@@ -98,7 +107,11 @@ func (t *SqlRender) lib() map[string]any {
 			if strings.TrimSpace(code) == "" {
 				return ""
 			}
-			res, err := t.engine.doRender(ctx.inter, code)
+			if len(ctx.inters) == 0 {
+				ctx.err = fmt.Errorf("slot的作用域stack被错误弹出")
+				return ""
+			}
+			res, err := t.engine.doRender(ctx.inters[len(ctx.inters)-1], code)
 			if err != nil {
 				ctx.err = err
 				return ""
@@ -109,7 +122,11 @@ func (t *SqlRender) lib() map[string]any {
 			ctx := t.sqlContext.GetContext()
 			content := t.sqlMap.constants[contentIndex]
 			// decodeCode(&content)
-			res, err := t.engine.doRender(ctx.inter, content)
+			if len(ctx.inters) == 0 {
+				ctx.err = fmt.Errorf("trim的作用域stack被错误弹出")
+				return ""
+			}
+			res, err := t.engine.doRender(ctx.inters[len(ctx.inters)-1], content)
 			if err != nil {
 				ctx.err = err
 				return ""

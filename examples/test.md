@@ -5,7 +5,7 @@
 select * from table1
 where 
 1 = 1
-AND id = 1,   --# val x when true
+AND id = 1,   --# val x if true
 AND id = 2,   --# val x? 
 and b in ('') --# each arr by ''
 and c = 3     --# abc?
@@ -20,7 +20,7 @@ and d = 4     --# a by 4
 
 --# use sql2: a=3,b=4
   --# hook a
-  纳尼 --# when b
+  纳尼 --# if b
   --# if 1 > 0
   我是替换的slot
   --# else 
