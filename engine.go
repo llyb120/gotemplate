@@ -16,14 +16,14 @@ type TemplateEngine struct {
 
 func (t *TemplateEngine) Render(template string, data any) (string, error) {
 	// 模板预处理
-	inter, err := t.prepareRender(template, data)
+	inter, err := t.prepareRender(data)
 	if err != nil {
 		return "", err
 	}
 	return t.doRender(inter, template)
 }
 
-func (t *TemplateEngine) prepareRender(template string, data any) (*goscript.Interpreter, error) {
+func (t *TemplateEngine) prepareRender(data any) (*goscript.Interpreter, error) {
 	inter := t.interpreter.Fork()
 	inter.SetGlobal(data)
 	return inter, nil

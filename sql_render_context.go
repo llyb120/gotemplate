@@ -11,13 +11,14 @@ type sqlContext struct {
 	sync.Map
 }
 type sqlContextItem struct {
-	title           string
-	subTitle        string
-	params          []any
-	hooks           map[string]string
-	inter           *goscript.Interpreter
+	title    string
+	subTitle string
+	params   []any
+	hooks    map[string]string
+	inter    *goscript.Interpreter
 	// currentUseScope string
-	err             error
+	constants map[int]string
+	err       error
 }
 
 func (ctx *sqlContext) SetContext(sqlContextItem *sqlContextItem) {

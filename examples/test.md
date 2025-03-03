@@ -69,7 +69,11 @@ select * from table1 {{ho}}
     --# end
 --# else
     --# slot a
-    hahah
+    hahah a
+    --# end
+
+    --# slot b
+    hahah b
     --# end
 --# end
 ```
