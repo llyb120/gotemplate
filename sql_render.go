@@ -297,7 +297,7 @@ func (t *SqlRender) GetSql(title, subTitle string, data any) (string, []any, err
 		title:    title,
 		subTitle: subTitle,
 		params:   make([]any, 0),
-		hooks:    map[string]string{},
+		hooks:    []map[string]string{},
 	}
 	t.sqlContext.SetContext(ctx)
 	defer t.sqlContext.CleanContext()
