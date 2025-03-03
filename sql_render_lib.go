@@ -51,8 +51,8 @@ func (t *SqlRender) lib() map[string]any {
 			if sub == "self" {
 				sub = ctx.subTitle
 			}
-			block := t.getSql(main, sub)
-			if block == nil {
+			sql := t.getSql(main, sub)
+			if sql == "" {
 				ctx.err = fmt.Errorf("没有找到模板 %s %s", main, sub)
 				return ""
 			}
@@ -63,7 +63,7 @@ func (t *SqlRender) lib() map[string]any {
 			for k, v := range hookContext {
 				// hook := v.(int)
 				// decodeCode(&hook)
-				ctx.hooks[k] = block.constants[v.(int)]
+				ctx.hooks[k] = t.sqlMap.constants[v.(int)]
 			}
 			defer func() {
 				ctx.hooks = make(map[string]string)
@@ -71,7 +71,7 @@ func (t *SqlRender) lib() map[string]any {
 			for k, v := range params {
 				inter.Set(k, v)
 			}
-			res, err := t.engine.doRender(inter, block.sql)
+			res, err := t.engine.doRender(inter, sql)
 			if err != nil {
 				ctx.err = err
 				return ""
@@ -85,7 +85,7 @@ func (t *SqlRender) lib() map[string]any {
 			if code, ok = ctx.hooks[name]; !ok {
 				// 对自身进行转义
 				// decodeCode(&self)
-				code = ctx.constants[selfIndex]
+				code = t.sqlMap.constants[selfIndex]
 			}
 			res, err := t.engine.doRender(ctx.inter, code)
 			if err != nil {
@@ -96,7 +96,7 @@ func (t *SqlRender) lib() map[string]any {
 		},
 		"trim": func(target, safe string, contentIndex int) string {
 			ctx := t.sqlContext.GetContext()
-			content := ctx.constants[contentIndex]
+			content := t.sqlMap.constants[contentIndex]
 			// decodeCode(&content)
 			res, err := t.engine.doRender(ctx.inter, content)
 			if err != nil {

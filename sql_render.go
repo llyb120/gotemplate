@@ -16,13 +16,15 @@ type SqlRender struct {
 
 type sqlBlocks struct {
 	sync.RWMutex
-	blocks map[string]*sqlBlock
-}
-
-type sqlBlock struct {
-	sql       string
+	blocks map[string]string
+	// 常量池
 	constants map[int]string
 }
+
+// type sqlBlock struct {
+// 	sql       string
+// 	constants map[int]string
+// }
 
 type ScanHandler func(fileName string, content string) error
 
@@ -47,22 +49,18 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 		subTitle := strings.TrimSpace(match[1])
 		sql := strings.TrimSpace(match[2])
 		t.handleCommand(&sql)
-		block := &sqlBlock{
-			sql:       sql,
-			constants: map[int]string{},
-		}
-		if err := t.handleSpecialCommand(&block.sql, nil, block.constants); err != nil {
+		if err := t.handleSpecialCommand(&sql, nil); err != nil {
 			return err
 		}
 		t.sqlMap.Lock()
-		t.sqlMap.blocks[title+":"+subTitle] = block
+		t.sqlMap.blocks[title+":"+subTitle] = sql
 		t.sqlMap.Unlock()
 	}
 	return nil
 }
 
 // 处理特殊的指令
-func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string, constants map[int]string) error {
+func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error {
 	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|trim|end|for|if|else)\b(.*?)$`)
 	matches := re.FindAllStringSubmatchIndex(*sql, -1)
 	contents := re.FindAllStringSubmatch(*sql, -1)
@@ -94,14 +92,16 @@ func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string, const
 				if endCmdType == "end" {
 					if count == 0 {
 						content := (*sql)[matches[i][1]:matches[j][0]]
-						if err := t.handleSpecialCommand(&content, hookContext, constants); err != nil {
+						if err := t.handleSpecialCommand(&content, hookContext); err != nil {
 							return err
 						}
 						// 对所有指令进行转义，否则会出错
 						// encodeCode(&content)
 						// escapeBacktick(&content)
-						constantIndex := len(constants)
-						constants[constantIndex] = content
+						t.sqlMap.Lock()
+						constantIndex := len(t.sqlMap.constants)
+						t.sqlMap.constants[constantIndex] = content
+						t.sqlMap.Unlock()
 						if cmdType == "hook" {
 							if hookContext == nil {
 								return fmt.Errorf("hook指令必须在use指令中使用")
@@ -279,26 +279,25 @@ func (t *SqlRender) handleCommand(sql *string) {
 	})
 }
 
-func (t *SqlRender) getSql(title, subTitle string) *sqlBlock {
+func (t *SqlRender) getSql(title, subTitle string) string {
 	t.sqlMap.RLock()
 	defer t.sqlMap.RUnlock()
-	if block, ok := t.sqlMap.blocks[title+":"+subTitle]; ok {
-		return block
+	if sql, ok := t.sqlMap.blocks[title+":"+subTitle]; ok {
+		return sql
 	}
-	return nil
+	return ""
 }
 
 func (t *SqlRender) GetSql(title, subTitle string, data any) (string, []any, error) {
-	block := t.getSql(title, subTitle)
-	if block == nil {
+	sql := t.getSql(title, subTitle)
+	if sql == "" {
 		return "", nil, errors.New("sql not found")
 	}
 	ctx := &sqlContextItem{
-		title:     title,
-		subTitle:  subTitle,
-		params:    make([]any, 0),
-		hooks:     map[string]string{},
-		constants: block.constants,
+		title:    title,
+		subTitle: subTitle,
+		params:   make([]any, 0),
+		hooks:    map[string]string{},
 	}
 	t.sqlContext.SetContext(ctx)
 	defer t.sqlContext.CleanContext()
@@ -307,7 +306,7 @@ func (t *SqlRender) GetSql(title, subTitle string, data any) (string, []any, err
 		return "", nil, err
 	}
 	ctx.inter = inter
-	sql, err := t.engine.doRender(inter, block.sql)
+	sql, err = t.engine.doRender(inter, sql)
 	if err != nil {
 		return "", nil, err
 	}
@@ -318,7 +317,8 @@ func NewSqlRender() *SqlRender {
 	sqlRender := &SqlRender{
 		sqlContext: &sqlContext{},
 		sqlMap: &sqlBlocks{
-			blocks: map[string]*sqlBlock{},
+			blocks:    map[string]string{},
+			constants: map[int]string{},
 		},
 	}
 	sqlRender.engine = NewTemplateEngine(sqlRender.lib())

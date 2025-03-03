@@ -17,8 +17,7 @@ type sqlContextItem struct {
 	hooks    map[string]string
 	inter    *goscript.Interpreter
 	// currentUseScope string
-	constants map[int]string
-	err       error
+	err error
 }
 
 func (ctx *sqlContext) SetContext(sqlContextItem *sqlContextItem) {
