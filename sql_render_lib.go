@@ -60,13 +60,18 @@ func (t *SqlRender) lib() map[string]any {
 			inter := ctx.inter.Fork()
 			ctx.inter = inter
 			// prepare hooks
+			ctx.hooks = append(ctx.hooks, make(map[string]string))
 			for k, v := range hookContext {
 				// hook := v.(int)
 				// decodeCode(&hook)
-				ctx.hooks[k] = t.sqlMap.constants[v.(int)]
+				ctx.hooks[len(ctx.hooks)-1][k] = t.sqlMap.constants[v.(int)]
 			}
 			defer func() {
-				ctx.hooks = make(map[string]string)
+				if len(ctx.hooks) == 0 {
+					ctx.err = fmt.Errorf("hook的作用域stack被错误弹出")
+				} else {
+					ctx.hooks = ctx.hooks[:len(ctx.hooks)-1]
+				}
 			}()
 			for k, v := range params {
 				inter.Set(k, v)
@@ -82,10 +87,16 @@ func (t *SqlRender) lib() map[string]any {
 			ctx := t.sqlContext.GetContext()
 			var code string
 			var ok bool
-			if code, ok = ctx.hooks[name]; !ok {
+			if len(ctx.hooks) == 0 {
+				// 这里是有可能的，因为最外层的没有对应的hook作用域
+				code = t.sqlMap.constants[selfIndex]
+			} else if code, ok = ctx.hooks[len(ctx.hooks)-1][name]; !ok {
 				// 对自身进行转义
 				// decodeCode(&self)
 				code = t.sqlMap.constants[selfIndex]
+			}
+			if strings.TrimSpace(code) == "" {
+				return ""
 			}
 			res, err := t.engine.doRender(ctx.inter, code)
 			if err != nil {
