@@ -65,6 +65,8 @@ func (t *SqlRender) lib() map[string]any {
 			ctx.inters = append(ctx.inters, inter)
 			// prepare hooks
 			ctx.hooks = append(ctx.hooks, make(map[string]string))
+			// prepare slots
+			ctx.slotHistories = append(ctx.slotHistories, make(map[string]string))
 			for k, v := range hookContext {
 				// hook := v.(int)
 				// decodeCode(&hook)
