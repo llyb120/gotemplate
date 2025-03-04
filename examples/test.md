@@ -61,7 +61,7 @@ where
 ```sql
 select * from table1 {{ho}}
 `122`
---# if !ho && test()
+--# if !ho 
     --# use self: ho=ok, abc=ho_ho
       --# hook a
       hoho

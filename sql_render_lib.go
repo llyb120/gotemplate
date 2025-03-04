@@ -116,6 +116,10 @@ func (t *SqlRender) lib() map[string]any {
 				ctx.err = err
 				return ""
 			}
+			if err := t.handlePhase(ctx, ON_SLOT_RENDER, &res, &ctx.params); err != nil {
+				ctx.err = err
+				return ""
+			}
 			return res
 		},
 		"trim": func(target, safe string, contentIndex int) string {
@@ -141,4 +145,13 @@ func (t *SqlRender) lib() map[string]any {
 			return fmt.Sprintf("\n %s \n", res)
 		},
 	}
+}
+
+func (t *SqlRender) handlePhase(ctx *sqlContextItem, phase SqlRenderHandlerPhase, sql *string, args *[]any) error {
+	for _, handler := range ctx.handlers {
+		if err := handler(phase, sql, args); err != nil {
+			return err
+		}
+	}
+	return nil
 }

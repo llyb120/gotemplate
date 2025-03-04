@@ -288,7 +288,7 @@ func (t *SqlRender) getSql(title, subTitle string) string {
 	return ""
 }
 
-func (t *SqlRender) GetSql(title, subTitle string, data any) (string, []any, error) {
+func (t *SqlRender) GetSql(title, subTitle string, data any, handlers ...SqlRenderHandler) (string, []any, error) {
 	sql := t.getSql(title, subTitle)
 	if sql == "" {
 		return "", nil, errors.New("sql not found")
@@ -298,6 +298,7 @@ func (t *SqlRender) GetSql(title, subTitle string, data any) (string, []any, err
 		subTitle: subTitle,
 		params:   make([]any, 0),
 		hooks:    []map[string]string{},
+		handlers: handlers,
 	}
 	t.sqlContext.SetContext(ctx)
 	defer t.sqlContext.CleanContext()
