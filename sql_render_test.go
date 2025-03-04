@@ -49,6 +49,7 @@ func TestSqlRender_Scan(t *testing.T) {
 		"test": func() bool {
 			return true
 		},
+		"Items": []any{"1", "2", "3"},
 	}, func(phase SqlRenderHandlerPhase, sql *string, args *[]any) error {
 		if phase == ON_SLOT_RENDER {
 			*sql += "foo bar"

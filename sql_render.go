@@ -257,7 +257,22 @@ func (t *SqlRender) handleCommand(sql *string) {
 			if commandSubMatch[0][2] != "" {
 				if strings.HasPrefix(commandSubMatch[0][2], "by") {
 					willBeReplaced := strings.TrimSpace(commandSubMatch[0][2][2:])
-					middle = strings.ReplaceAll(middle, willBeReplaced, mainCommand)
+					if strings.HasPrefix(willBeReplaced, "/") && strings.HasSuffix(willBeReplaced, "/") {
+						replaceRegex := regexp.MustCompile(willBeReplaced[1 : len(willBeReplaced)-1])
+						middle = replaceRegex.ReplaceAllStringFunc(middle, func(s string) string {
+							subMatch := replaceRegex.FindStringSubmatch(s)
+							if len(subMatch) == 0 {
+								return s
+							}
+							result := s
+							for i := 1; i < len(subMatch); i++ {
+								result = strings.Replace(result, subMatch[i], mainCommand, 1)
+							}
+							return result
+						})
+					} else {
+						middle = strings.ReplaceAll(middle, willBeReplaced, mainCommand)
+					}
 				}
 			} else {
 				// 否则 val 和 each 需要向前吞噬
