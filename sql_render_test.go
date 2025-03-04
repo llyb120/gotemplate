@@ -50,7 +50,7 @@ func TestSqlRender_Scan(t *testing.T) {
 			return true
 		},
 		"Items": []any{"1", "2", "3"},
-	}, func(phase SqlRenderHandlerPhase, sql *string, args *[]any) error {
+	}, func(phase SqlRenderHandlerPhase, context map[string]any, sql *string, args *[]any) error {
 		if phase == ON_SLOT_RENDER {
 			*sql += "foo bar"
 			// 	*sql = strings.ReplaceAll(*sql, "{{x}}", "{{.x}}")
