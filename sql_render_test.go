@@ -50,9 +50,10 @@ func TestSqlRender_Scan(t *testing.T) {
 			return true
 		},
 	}, func(phase SqlRenderHandlerPhase, sql *string, args *[]any) error {
-		// if phase == ON_SLOT_RENDER {
-		// 	*sql = strings.ReplaceAll(*sql, "{{x}}", "{{.x}}")
-		// }
+		if phase == ON_SLOT_RENDER {
+			*sql += "foo bar"
+			// 	*sql = strings.ReplaceAll(*sql, "{{x}}", "{{.x}}")
+		}
 		return nil
 	})
 

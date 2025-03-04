@@ -71,15 +71,12 @@ func (t *SqlRender) lib() map[string]any {
 				ctx.hooks[len(ctx.hooks)-1][k] = t.sqlMap.constants[v.(int)]
 			}
 			defer func() {
-				if len(ctx.hooks) == 0 {
+				if len(ctx.hooks) == 0 || len(ctx.slotHistories) == 0 || len(ctx.inters) == 0 {
 					ctx.err = fmt.Errorf("hook的作用域stack被错误弹出")
 				} else {
 					ctx.hooks = ctx.hooks[:len(ctx.hooks)-1]
-				}
-				if len(ctx.inters) == 0 {
-					ctx.err = fmt.Errorf("use的作用域stack被错误弹出")
-				} else {
 					ctx.inters = ctx.inters[:len(ctx.inters)-1]
+					ctx.slotHistories = ctx.slotHistories[:len(ctx.slotHistories)-1]
 				}
 			}()
 			for k, v := range params {
@@ -107,8 +104,32 @@ func (t *SqlRender) lib() map[string]any {
 			if strings.TrimSpace(code) == "" {
 				return ""
 			}
-			if len(ctx.inters) == 0 {
+			if len(ctx.inters) == 0 || len(ctx.slotHistories) == 0 {
 				ctx.err = fmt.Errorf("slot的作用域stack被错误弹出")
+				return ""
+			}
+			ctx.slotHistories[len(ctx.slotHistories)-1][name] = code
+			res, err := t.engine.doRender(ctx.inters[len(ctx.inters)-1], code)
+			if err != nil {
+				ctx.err = err
+				return ""
+			}
+			if err := t.handlePhase(ctx, ON_SLOT_RENDER, &res, &ctx.params); err != nil {
+				ctx.err = err
+				return ""
+			}
+			return res
+		},
+		"redo": func(name string) string {
+			ctx := t.sqlContext.GetContext()
+			if len(ctx.slotHistories) == 0 {
+				fmt.Printf("warn: redo无法找到对应的slot %s \n", name)
+				return ""
+			}
+			var code string
+			var ok bool
+			if code, ok = ctx.slotHistories[len(ctx.slotHistories)-1][name]; !ok {
+				fmt.Printf("warn: redo无法找到对应的slot %s \n", name)
 				return ""
 			}
 			res, err := t.engine.doRender(ctx.inters[len(ctx.inters)-1], code)

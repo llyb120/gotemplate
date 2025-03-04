@@ -76,4 +76,6 @@ select * from table1 {{ho}}
     hahah b
     --# end
 --# end
+
+--# redo a
 ```

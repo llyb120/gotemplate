@@ -11,11 +11,12 @@ type sqlContext struct {
 	sync.Map
 }
 type sqlContextItem struct {
-	title    string
-	subTitle string
-	params   []any
-	hooks    []map[string]string
-	inters   []*goscript.Interpreter
+	title         string
+	subTitle      string
+	params        []any
+	hooks         []map[string]string
+	inters        []*goscript.Interpreter
+	slotHistories []map[string]string
 	// currentUseScope string
 	err      error
 	handlers []SqlRenderHandler

@@ -61,7 +61,7 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 
 // 处理特殊的指令
 func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error {
-	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|trim|end|for|if|else)\b(.*?)$`)
+	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|trim|end|for|if|else|redo)\b(.*?)$`)
 	matches := re.FindAllStringSubmatchIndex(*sql, -1)
 	contents := re.FindAllStringSubmatch(*sql, -1)
 	_ = contents
@@ -161,13 +161,15 @@ func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error
 						i = j
 						pos = matches[j][1]
 						break
-					} else if endCmdType != "else" {
+					} else if endCmdType != "else" && endCmdType != "redo" {
 						count--
 					}
-				} else if endCmdType != "else" {
+				} else if endCmdType != "else" && endCmdType != "redo" {
 					count++
 				}
 			}
+		case "redo":
+			builder.WriteString(fmt.Sprintf("{{\n __code__.WriteString(redo(`%s`)) \n}} \n", cmdArgs))
 		default:
 			builder.WriteString(fmt.Sprintf("{{ %s %s }} \n", cmdType, cmdArgs))
 		}
@@ -307,6 +309,7 @@ func (t *SqlRender) GetSql(title, subTitle string, data any, handlers ...SqlRend
 		return "", nil, err
 	}
 	ctx.inters = append(ctx.inters, inter)
+	ctx.slotHistories = append(ctx.slotHistories, map[string]string{})
 	sql, err = t.engine.doRender(inter, sql)
 	if err != nil {
 		return "", nil, err
