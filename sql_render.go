@@ -213,7 +213,7 @@ func (t *SqlRender) handleCommand(sql *string) {
 			// 如果使用了if
 			if commandSubMatch[0][3] != "" && strings.HasPrefix(commandSubMatch[0][3], "if") {
 				// 使用if
-				conditionExpr := commandSubMatch[0][3][3:]
+				conditionExpr := commandSubMatch[0][3][2:]
 				//fmt.Println(conditionExpr)
 				pre += "{{ if " + conditionExpr + " }} \n"
 				post += "{{ end }} \n"
