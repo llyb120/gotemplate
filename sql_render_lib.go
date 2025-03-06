@@ -116,8 +116,9 @@ func (t *SqlRender) lib() map[string]any {
 				ctx.err = err
 				return ""
 			}
-			if err := t.handlePhase(ctx, ON_SLOT_RENDER, map[string]any{
-				"name": name,
+			if err := t.handlePhase(ctx, ON_SLOT_RENDER, SqlHandlerContext{
+				Name:    name,
+				Context: ctx.inters[len(ctx.inters)-1].GetGlobal(),
 			}, &res, &ctx.params); err != nil {
 				ctx.err = err
 				return ""
@@ -141,8 +142,9 @@ func (t *SqlRender) lib() map[string]any {
 				ctx.err = err
 				return ""
 			}
-			if err := t.handlePhase(ctx, ON_REDO_RENDER, map[string]any{
-				"name": name,
+			if err := t.handlePhase(ctx, ON_REDO_RENDER, SqlHandlerContext{
+				Name:    name,
+				Context: ctx.inters[len(ctx.inters)-1].GetGlobal(),
 			}, &res, &ctx.params); err != nil {
 				ctx.err = err
 				return ""
@@ -174,7 +176,7 @@ func (t *SqlRender) lib() map[string]any {
 	}
 }
 
-func (t *SqlRender) handlePhase(ctx *sqlContextItem, phase SqlRenderHandlerPhase, context map[string]any, sql *string, args *[]any) error {
+func (t *SqlRender) handlePhase(ctx *sqlContextItem, phase SqlRenderPhase, context SqlHandlerContext, sql *string, args *[]any) error {
 	for _, handler := range ctx.handlers {
 		if err := handler(phase, context, sql, args); err != nil {
 			return err

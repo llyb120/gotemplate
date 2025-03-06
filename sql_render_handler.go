@@ -1,10 +1,15 @@
 package gotemplate
 
-type SqlRenderHandlerPhase string
+type SqlRenderPhase string
 
 var (
-	ON_SLOT_RENDER SqlRenderHandlerPhase = "ON_SLOT_RENDER"
-	ON_REDO_RENDER SqlRenderHandlerPhase = "ON_REDO_RENDER"
+	ON_SLOT_RENDER SqlRenderPhase = "ON_SLOT_RENDER"
+	ON_REDO_RENDER SqlRenderPhase = "ON_REDO_RENDER"
 )
 
-type SqlRenderHandler func(phase SqlRenderHandlerPhase, context map[string]any, sql *string, args *[]any) error
+type SqlHandlerContext struct {
+	Name    string
+	Context any
+}
+
+type SqlRenderHandler func(phase SqlRenderPhase, context SqlHandlerContext, sql *string, args *[]any) error
