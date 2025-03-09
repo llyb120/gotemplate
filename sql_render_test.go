@@ -64,6 +64,9 @@ func TestSqlRender_Scan(t *testing.T) {
 			*sql += "foo bar"
 			// 	*sql = strings.ReplaceAll(*sql, "{{x}}", "{{.x}}")
 		}
+		if phase == ON_REDO_RENDER {
+			*sql += "shou me the monty"
+		}
 		return nil
 	})
 

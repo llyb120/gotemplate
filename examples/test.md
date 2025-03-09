@@ -73,10 +73,19 @@ and id in ('1', "2", 123) --# each Items by /\((.*?)\)/
     hahah a
     --# end
 
+    --# use test_use_current_context: context=current2
+    --# end
+
     --# slot b
     hahah b
     --# end
 --# end
 
 --# redo a
+```
+
+## test_use_current_context
+```sql
+  it will be shown
+  --# redo a
 ```

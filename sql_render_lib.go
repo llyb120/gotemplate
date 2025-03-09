@@ -61,24 +61,33 @@ func (t *SqlRender) lib() map[string]any {
 				ctx.err = fmt.Errorf("没有找到模板 %s %s", main, sub)
 				return ""
 			}
-			inter := ctx.inters[len(ctx.inters)-1].Fork()
-			ctx.inters = append(ctx.inters, inter)
-			// prepare hooks
-			ctx.hooks = append(ctx.hooks, make(map[string]string))
-			// prepare slots
-			ctx.slotHistories = append(ctx.slotHistories, make(map[string]string))
+			var shouldUseCurrentContext = false
+			if useCurrentContext := params["context"]; useCurrentContext == "current" {
+				shouldUseCurrentContext = true
+			}
+			var inter = ctx.inters[len(ctx.inters)-1]
+			if !shouldUseCurrentContext {
+				inter = inter.Fork()
+				ctx.inters = append(ctx.inters, inter)
+				// prepare hooks
+				ctx.hooks = append(ctx.hooks, make(map[string]string))
+				// prepare slots
+				ctx.slotHistories = append(ctx.slotHistories, make(map[string]string))
+			}
 			for k, v := range hookContext {
 				// hook := v.(int)
 				// decodeCode(&hook)
 				ctx.hooks[len(ctx.hooks)-1][k] = t.sqlMap.constants[v.(int)]
 			}
 			defer func() {
-				if len(ctx.hooks) == 0 || len(ctx.slotHistories) == 0 || len(ctx.inters) == 0 {
-					ctx.err = fmt.Errorf("hook的作用域stack被错误弹出")
-				} else {
-					ctx.hooks = ctx.hooks[:len(ctx.hooks)-1]
-					ctx.inters = ctx.inters[:len(ctx.inters)-1]
-					ctx.slotHistories = ctx.slotHistories[:len(ctx.slotHistories)-1]
+				if !shouldUseCurrentContext {
+					if len(ctx.hooks) == 0 || len(ctx.slotHistories) == 0 || len(ctx.inters) == 0 {
+						ctx.err = fmt.Errorf("hook的作用域stack被错误弹出")
+					} else {
+						ctx.hooks = ctx.hooks[:len(ctx.hooks)-1]
+						ctx.inters = ctx.inters[:len(ctx.inters)-1]
+						ctx.slotHistories = ctx.slotHistories[:len(ctx.slotHistories)-1]
+					}
 				}
 			}()
 			for k, v := range params {
