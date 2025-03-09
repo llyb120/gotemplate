@@ -60,7 +60,7 @@ where
 测试自引用
 ```sql
 select * from table1 {{ho}}
-`122`
+`122` --# testfn()? by 1
 and id in ('1', "2", 123) --# each Items by /\((.*?)\)/
 --# if !ho 
     --# use self: ho=ok, abc=ho_ho

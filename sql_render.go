@@ -246,10 +246,18 @@ func (t *SqlRender) handleCommand(sql *string) {
 					}
 					mainCommand = "{{ each(" + leftCommand + ") }}"
 					eatTail = true
+				} else {
+					if strings.HasSuffix(leftCommand, "?") {
+						pre += "{{ if " + leftCommand[:len(leftCommand)-1] + " }} \n"
+						post += "{{ end }} \n"
+						// 去掉？
+						leftCommand = leftCommand[:len(leftCommand)-1]
+					}
+					mainCommand = "{{ " + leftCommand + " }}"
 				}
 
 				if mainCommand == "" {
-					mainCommand = "{{" + commandSubMatch[0][1] + "}}"
+					mainCommand = "{{ " + commandSubMatch[0][1] + " }}"
 				}
 			}
 
