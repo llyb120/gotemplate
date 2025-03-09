@@ -4,10 +4,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
 )
+
+func TestSqlRender_Call(t *testing.T) {
+	refVal := reflect.ValueOf(_str)
+	result := refVal.Call([]reflect.Value{
+		reflect.Zero(reflect.TypeOf((*int)(nil)).Elem()),
+	})
+	fmt.Println(result)
+}
 
 func TestSqlRender_Scan(t *testing.T) {
 	var g ErrGroup
