@@ -2,8 +2,6 @@ package gotemplate
 
 import (
 	"fmt"
-
-	"github.com/llyb120/goscript"
 )
 
 func (t *TemplateEngine) lib() map[string]any {
@@ -14,7 +12,7 @@ func (t *TemplateEngine) lib() map[string]any {
 }
 
 func _str(v any) string {
-	if v == goscript.Undefined {
+	if v == nil {
 		return ""
 	}
 	return fmt.Sprintf("%v", v)
