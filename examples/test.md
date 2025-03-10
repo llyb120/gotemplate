@@ -88,4 +88,11 @@ and id in ('1', "2", 123) --# each Items by /\((.*?)\)/
 ```sql
   it will be shown
   --# redo a
+     
+    --# slot ccc
+     i am ccc
+    --# end
+     
+    --# redo ccc if true
+    --# redo ccc if false
 ```

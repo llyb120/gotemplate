@@ -61,7 +61,7 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 
 // 处理特殊的指令
 func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error {
-	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|trim|end|for|if|else|redo)\b(.*?)$`)
+	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|trim|end|for|if|else|redo)\b(.*?)(\bif\b.*?)?$`)
 	matches := re.FindAllStringSubmatchIndex(*sql, -1)
 	contents := re.FindAllStringSubmatch(*sql, -1)
 	_ = contents
@@ -79,6 +79,10 @@ func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error
 		pos = matches[i][1]
 		cmdType := (*sql)[matches[i][2]:matches[i][3]]
 		cmdArgs := strings.TrimSpace((*sql)[matches[i][4]:matches[i][5]])
+		ifExpr := ""
+		if matches[i][6] != -1 && matches[i][7] != -1 {
+			ifExpr = strings.TrimPrefix((*sql)[matches[i][6]:matches[i][7]], "if")
+		}
 		switch cmdType {
 		case "hook", "slot", "trim", "use":
 			if cmdType == "use" {
@@ -169,7 +173,14 @@ func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error
 				}
 			}
 		case "redo":
+			// 暂时先在这里处理if
+			if ifExpr != "" {
+				builder.WriteString(fmt.Sprintf("{{ if %s }} \n", ifExpr))
+			}
 			builder.WriteString(fmt.Sprintf("{{\n __code__.WriteString(redo(`%s`)) \n}} \n", cmdArgs))
+			if ifExpr != "" {
+				builder.WriteString("{{ end }} \n")
+			}
 		default:
 			builder.WriteString(fmt.Sprintf("{{ %s %s }} \n", cmdType, cmdArgs))
 		}
