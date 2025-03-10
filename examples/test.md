@@ -59,6 +59,8 @@ where
 ## test3
 测试自引用
 ```sql
+--# Test()
+
 select * from table1 {{ho}}
 `122` --# testfn()? by 1
 and id in ('1', "2", 123) --# each Items by /\((.*?)\)/

@@ -60,10 +60,11 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 }
 
 // 处理特殊的指令
+var lineCommandRe = regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|trim|end|for|if|else|redo)\b(.*?)(\bif\b.*?)?$`)
+
 func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error {
-	re := regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|trim|end|for|if|else|redo)\b(.*?)(\bif\b.*?)?$`)
-	matches := re.FindAllStringSubmatchIndex(*sql, -1)
-	contents := re.FindAllStringSubmatch(*sql, -1)
+	matches := lineCommandRe.FindAllStringSubmatchIndex(*sql, -1)
+	contents := lineCommandRe.FindAllStringSubmatch(*sql, -1)
 	_ = contents
 
 	// 记录所有hook块
@@ -213,6 +214,10 @@ func (t *SqlRender) handleCommand(sql *string) {
 		middle = strings.TrimSpace(matches[0][1])
 		if middle == "" {
 			// 行指令不该由你处理
+			if !lineCommandRe.MatchString(s) {
+				// 如果不是已知的行指令，说明是函数调用
+				return fmt.Sprintf("{{ \n %s \n }} \n", matches[0][2])
+			}
 			return s
 		}
 		// 只处理尾指令
