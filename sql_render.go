@@ -160,7 +160,13 @@ func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error
 								*hookContext += `}`
 								// fmt.Println(content)
 								// fmt.Println("12332112331")
+								if ifExpr != "" {
+									builder.WriteString(fmt.Sprintf("{{ if %s }} \n", ifExpr))
+								}
 								builder.WriteString(fmt.Sprintf("{{\n __code__.WriteString(use(`%s`,`%s`, %s, %s)) \n}} \n", main, sub, params, *hookContext))
+								if ifExpr != "" {
+									builder.WriteString("{{ end }} \n")
+								}
 							}()
 						}
 						i = j

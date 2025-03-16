@@ -65,7 +65,7 @@ select * from table1 {{ho}}
 `122` --# testfn()? by 1
 and id in ('1', "2", 123) --# each Items by /\((.*?)\)/
 --# if !ho 
-    --# use self: ho=ok, abc=ho_ho
+    --# use self: ho=ok, abc=ho_ho if false
       --# hook a
       hoho
       --# end
