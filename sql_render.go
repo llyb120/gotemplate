@@ -362,6 +362,15 @@ func (t *SqlRender) GetSql(title, subTitle string, data any, handlers ...SqlRend
 	return sql, ctx.params, ctx.err
 }
 
+func (t *SqlRender) GetSqlParams() *[]any {
+	ctx := t.sqlContext.GetContext()
+	if ctx == nil {
+		var arr = make([]any, 0)
+		return &arr
+	}
+	return &ctx.params
+}
+
 func NewSqlRender() *SqlRender {
 	sqlRender := &SqlRender{
 		sqlContext: &sqlContext{},
