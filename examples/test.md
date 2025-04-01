@@ -65,14 +65,16 @@ select * from table1 {{ho}}
 `122` --# testfn()? by 1
 and id in ('1', "2", 123) --# each Items by /\((.*?)\)/
 --# if !ho 
-    --# use self: ho=ok, abc=ho_ho if false
+    --# use self: ho=ok, abc=ho_ho 
       --# hook a
-      hoho
+      hoho redo! --# if dore
+      hoho --# if !dore
       --# end
     --# end
 --# else
     --# slot a
-    hahah a
+    hahah a redo! --# if dore
+    hahah a --# if !dore
     --# end
 
     --# use test_use_current_context: context=current2
@@ -83,7 +85,7 @@ and id in ('1', "2", 123) --# each Items by /\((.*?)\)/
     --# end
 --# end
 
---# redo a
+--# redo a: dore=true
 ```
 
 ## test_use_current_context

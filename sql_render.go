@@ -180,14 +180,45 @@ func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error
 				}
 			}
 		case "redo":
-			// 暂时先在这里处理if
-			if ifExpr != "" {
-				builder.WriteString(fmt.Sprintf("{{ if %s }} \n", ifExpr))
-			}
-			builder.WriteString(fmt.Sprintf("{{\n __code__.WriteString(redo(`%s`)) \n}} \n", cmdArgs))
-			if ifExpr != "" {
-				builder.WriteString("{{ end }} \n")
-			}
+			// 我已经看不懂了，仿照use的写法，处理额外的参数
+			func() {
+				p := strings.Index(cmdArgs, ":")
+				var cmdParams string
+				if p > -1 {
+					cmdParams = cmdArgs[p+1:]
+					cmdArgs = cmdArgs[:p]
+				}
+				var params string = "map[string]any{"
+				if p > -1 {
+					re := regexp.MustCompile(`(\w+(?:\.\w+)?)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\w+))`)
+					res := re.FindAllStringSubmatch(cmdParams, -1)
+					// params := make(map[string]string)
+					for _, match := range res {
+						key := match[1]
+						var value string
+
+						// Check which capture group has the value
+						switch {
+						case match[2] != "": // Matched double-quoted string
+							value = match[2]
+						case match[3] != "": // Matched single-quoted string
+							value = match[3]
+						case match[4] != "": // Matched unquoted value
+							value = match[4]
+						}
+						params += fmt.Sprintf("`%s`: `%s`,", key, value)
+					}
+				}
+				params += `}`
+				// 暂时先在这里处理if
+				if ifExpr != "" {
+					builder.WriteString(fmt.Sprintf("{{ if %s }} \n", ifExpr))
+				}
+				builder.WriteString(fmt.Sprintf("{{\n __code__.WriteString(redo(`%s`, %s)) \n}} \n", cmdArgs, params))
+				if ifExpr != "" {
+					builder.WriteString("{{ end }} \n")
+				}
+			}()
 		default:
 			builder.WriteString(fmt.Sprintf("{{ %s %s }} \n", cmdType, cmdArgs))
 		}

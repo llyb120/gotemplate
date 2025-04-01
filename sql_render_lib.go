@@ -134,7 +134,7 @@ func (t *SqlRender) lib() map[string]any {
 			}
 			return res
 		},
-		"redo": func(name string) string {
+		"redo": func(name string, params map[string]any) string {
 			ctx := t.sqlContext.GetContext()
 			if len(ctx.slotHistories) == 0 {
 				fmt.Printf("warn: redo无法找到对应的slot %s \n", name)
@@ -146,7 +146,23 @@ func (t *SqlRender) lib() map[string]any {
 				fmt.Printf("warn: redo无法找到对应的slot %s \n", name)
 				return ""
 			}
-			res, err := t.engine.doRender(ctx.inters[len(ctx.inters)-1], code)
+			iter := ctx.inters[len(ctx.inters)-1]
+			if len(params) > 0 {
+				// 这里是否应该开一个新的作用域？
+				iter = iter.Fork()
+				ctx.inters = append(ctx.inters, iter)
+				defer func() {
+					if len(ctx.inters) == 0 {
+						ctx.err = fmt.Errorf("redo的作用域stack被错误弹出")
+					} else {
+						ctx.inters = ctx.inters[:len(ctx.inters)-1]
+					}
+				}()
+				for k, v := range params {
+					iter.Set(k, v)
+				}
+			}
+			res, err := t.engine.doRender(iter, code)
 			if err != nil {
 				ctx.err = err
 				return ""

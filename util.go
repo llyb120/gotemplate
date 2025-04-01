@@ -28,3 +28,7 @@ func (e *ErrGroup) Go(fn func() error) {
 		return fn()
 	})
 }
+
+func isDigit(ch byte) bool {
+	return ch >= '0' && ch <= '9'
+}
