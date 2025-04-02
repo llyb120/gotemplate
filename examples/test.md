@@ -63,7 +63,10 @@ where
 
 select * from table1 {{ho}}
 `122` --# testfn()? by 1
-and id in ('1', "2", 123) --# each Items by /\((.*?)\)/
+and id in ('1', "2", 123) and id not in (1,2,3) --# each Items $$ each Items2
+and c = 1 and d = 234 --# val a $$ val b
+and c = '1' and d = '234' --# val a $$ val b
+and c = 1 and d = '234' --# val a $$ val b
 --# if !ho 
     --# use self: ho=ok, abc=ho_ho 
       --# hook a

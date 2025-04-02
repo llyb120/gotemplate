@@ -58,7 +58,8 @@ func TestSqlRender_Scan(t *testing.T) {
 		"test": func() bool {
 			return true
 		},
-		"Items": []any{"1", "2", "3"},
+		"Items":  []any{"1", "2", "3"},
+		"Items2": []any{"1", "2", "3", "4", "5"},
 		"Test": func() string {
 			println("Test")
 			return "123"
