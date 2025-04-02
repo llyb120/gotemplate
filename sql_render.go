@@ -242,7 +242,7 @@ func (t *SqlRender) handleCommand(sql *string) {
 	*sql = spaceRegex.ReplaceAllString(*sql, " ")
 	command := regexp.MustCompile(`^(.*?)\s*(\bby\b.*?)?(\bif\b.*?)?$`)
 	re := regexp.MustCompile(`(?m)^(.*?)--#\s*(.*?)$`)
-	eatRe := regexp.MustCompile(`('.*?'|".*?"|[\d\.]+)\s*,?\s*$`)
+	//eatRe := regexp.MustCompile(`('.*?'|".*?"|[\d\.]+)\s*,?\s*$`)
 	*sql = re.ReplaceAllStringFunc(*sql, func(s string) string {
 		var pre, middle, post string
 		// 指令语句
@@ -259,8 +259,8 @@ func (t *SqlRender) handleCommand(sql *string) {
 		}
 		// 只处理尾指令
 		parts := strings.Split(matches[0][2], "$$")
-		for _, part := range parts {
-			part := strings.TrimSpace(part)
+		for _i := len(parts) - 1; _i >= 0; _i-- {
+			part := strings.TrimSpace(parts[_i])
 			// 普通指令
 			commandSubMatch := command.FindAllStringSubmatch(part, 1)
 			// 如果使用了if
@@ -338,14 +338,86 @@ func (t *SqlRender) handleCommand(sql *string) {
 			} else {
 				// 否则 val 和 each 需要向前吞噬
 				if eatTail {
-					middle = eatRe.ReplaceAllStringFunc(middle, func(s string) string {
-						s = strings.TrimSpace(s)
-						if strings.HasSuffix(s, ",") {
-							return mainCommand + ","
-						} else {
-							return mainCommand
+					// val 需要穿越括号，吞噬第一个遇到的字符串或者数字
+					isEachCommand := strings.HasPrefix(commandSubMatch[0][1], "each ")
+					startPos := -1
+					endPos := -1
+					count := len(parts) - 1
+					func() {
+						isTarget := count == _i
+						for i := len(middle) - 1; i >= 0; i-- {
+							if middle[i] == '}' && i > 0 && middle[i-1] == '}' {
+								// 向前读到 {{
+								for j := i - 1; j >= 0; j-- {
+									if middle[j] == '{' && j > 0 && middle[j-1] == '{' {
+										i = j - 1
+										break
+									}
+								}
+								continue
+							}
+							if isEachCommand {
+								if middle[i] == ')' {
+									old := i
+									for j := i - 1; j >= 0; j-- {
+										if middle[j] == '(' {
+											endPos = j + 1
+											i = j
+											break
+										}
+									}
+									if isTarget {
+										startPos = old
+									} else {
+										count--
+										isTarget = count == _i
+										continue
+									}
+								}
+							}
+							if middle[i] == '"' || middle[i] == '\'' {
+								startPos = i + 1
+								for j := i - 1; j >= 0; j-- {
+									if middle[j] == middle[i] {
+										endPos = j
+										return
+									}
+								}
+							}
+							if isDigit(middle[i]) {
+								startPos = i + 1
+								for j := i - 1; j >= 0; j-- {
+									if middle[j] == '.' {
+										continue
+									}
+									if !isDigit(middle[j]) {
+										endPos = j + 1
+										return
+									}
+								}
+							}
+
+							if startPos > -1 && endPos > -1 {
+								break
+							}
 						}
-					})
+					}()
+					if startPos > -1 && endPos > -1 {
+						// 替换成mainCommand
+						// 因为是逆向遍历的，所以这里是反的
+						fmt.Println(middle[:endPos])
+						fmt.Println(middle[startPos:])
+						middle = middle[:endPos] + mainCommand + middle[startPos:]
+					}
+					//// each 要吞噬第一个遇到的括号，如果没有括号，则复制val的行为
+					//middle = eatRe.ReplaceAllStringFunc(middle, func(s string) string {
+					//	s = strings.TrimSpace(s)
+					//	if strings.HasSuffix(s, ",") {
+					//		return mainCommand + ","
+					//	} else {
+					//		return mainCommand
+					//	}
+					//})
 				}
 			}
 		}
