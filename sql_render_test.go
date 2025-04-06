@@ -83,3 +83,55 @@ func TestUseRegex(t *testing.T) {
 	arr := re.FindAllStringSubmatch("pc_console_games_topcharts_base as period_data", 1)
 	t.Log(arr)
 }
+
+func TestTrim(t *testing.T) {
+	render := initRender(t)
+
+	sql, params, err := render.GetSql("test", "test-trim", map[string]any{
+		"SourceMetrics": map[string]any{
+			"b": nil,
+			"c": nil,
+			"d": nil,
+			"e": nil,
+			"f": nil,
+		},
+		"EntityType": "total",
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(sql, params)
+}
+
+func initRender(t *testing.T) *SqlRender {
+	var g ErrGroup
+	dir := "./examples"
+	sqlRender := NewSqlRender()
+	if err := sqlRender.Scan(func(handler ScanHandler) error {
+		return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			if !strings.HasSuffix(path, ".md") {
+				return nil
+			}
+			g.Go(func() error {
+				content, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				return handler(path, string(content))
+			})
+			return nil
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.Wait(); err != nil {
+		t.Fatal(err)
+	}
+	return sqlRender
+}

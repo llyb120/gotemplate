@@ -60,7 +60,7 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 }
 
 // 处理特殊的指令
-var lineCommandRe = regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|trim|end|for|if|else|redo)\b(.*?)(\bif\b.*?)?$`)
+var lineCommandRe = regexp.MustCompile(`(?im)^\s*--#\s*\b(use|hook|slot|trim|end|for|if|else\s+if|else|redo)\b(.*?)(\bif\b.*?)?$`)
 
 func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error {
 	matches := lineCommandRe.FindAllStringSubmatchIndex(*sql, -1)
@@ -172,10 +172,10 @@ func (t *SqlRender) handleSpecialCommand(sql *string, hookContext *string) error
 						i = j
 						pos = matches[j][1]
 						break
-					} else if endCmdType != "else" && endCmdType != "redo" {
+					} else if !strings.HasPrefix(endCmdType, "else") && endCmdType != "redo" {
 						count--
 					}
-				} else if endCmdType != "else" && endCmdType != "redo" {
+				} else if !strings.HasPrefix(endCmdType, "else") && endCmdType != "redo" {
 					count++
 				}
 			}

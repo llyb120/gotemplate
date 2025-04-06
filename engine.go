@@ -86,7 +86,7 @@ func (t *TemplateEngine) preHandle(content string) string {
 						command = strings.TrimPrefix(command, "else")
 						command = strings.TrimLeft(command, " ")
 						command = strings.TrimPrefix(command, "if")
-						builder.WriteString(fmt.Sprintf("else if %s {\n", command))
+						builder.WriteString(fmt.Sprintf("} else if %s {\n", command))
 					}
 				}
 			}
