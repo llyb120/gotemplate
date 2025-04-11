@@ -1,5 +1,6 @@
 github.com/llyb120/goscript v0.0.105 h1:Aal50tyjuCIvocfLNza+YEcjcOT+9d/Jo+XruuGBc3w=
 github.com/llyb120/goscript v0.0.105/go.mod h1:Fq9bWntwE37sqBjVGoxoe3n8Sl7SBxqfc5p0MlA7GYs=
+github.com/llyb120/goscript v0.0.106/go.mod h1:Fq9bWntwE37sqBjVGoxoe3n8Sl7SBxqfc5p0MlA7GYs=
 github.com/petermattis/goid v0.0.0-20250211185408-f2b9d978cd7a h1:ckxP/kGzsxvxXo8jO6E/0QJ8MMmwI7IRj4Fys9QbAZA=
 github.com/petermattis/goid v0.0.0-20250211185408-f2b9d978cd7a/go.mod h1:pxMtw7cyUw6B2bRH0ZBANSPg+AoSud1I1iyJHI69jH4=
 golang.org/x/sync v0.11.0 h1:GGz8+XQP4FvTTrjZPzNKTMFtSXH80RAzG+5ghFPgK9w=
