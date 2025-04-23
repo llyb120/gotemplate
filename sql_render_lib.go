@@ -14,14 +14,21 @@ func (t *SqlRender) lib() map[string]any {
 			return "?"
 		},
 		"each": func(arg any) string {
+			ctx := t.sqlContext.GetContext()
+			if arg == nil {
+				fmt.Println("warn: each 没有找到数据")
+				ctx.params = append(ctx.params, "__UNDEFINED__")
+				return "?"
+			}
 			// 必须是一个切片，通过反射进行判断
 			if reflect.TypeOf(arg).Kind() != reflect.Slice {
-				return ""
+				fmt.Println("warn: each 数据类型错误")
+				ctx.params = append(ctx.params, "__UNDEFINED__")
+				return "?"
 			}
 			// 循环
 			iter := reflect.ValueOf(arg)
 			str := ""
-			ctx := t.sqlContext.GetContext()
 			for i := 0; i < iter.Len(); i++ {
 				value := iter.Index(i)
 				ctx.params = append(ctx.params, value.Interface())
