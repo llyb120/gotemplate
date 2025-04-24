@@ -395,6 +395,8 @@ func (t *SqlRender) handleCommand(sql *string) {
 										return
 									}
 								}
+								// 如果已经到末尾
+								endPos = 0
 							}
 
 							if startPos > -1 && endPos > -1 {
