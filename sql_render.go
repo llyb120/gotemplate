@@ -16,7 +16,8 @@ type SqlRender struct {
 
 type sqlBlocks struct {
 	sync.RWMutex
-	blocks map[string]string
+	blocks  map[string]string
+	goCodes map[string]map[string]string
 	// 常量池
 	constants map[int]string
 }
@@ -42,19 +43,56 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 		return fmt.Errorf("%s 没有找到标题", fileName)
 	}
 	title := strings.TrimSpace(matches[0][1])
-	// 获得二级标题指向的sql
-	re = regexp.MustCompile("(?is)##(.*?)\n.*?```sql(?:.*?)*\n(.*?)```")
-	matches = re.FindAllStringSubmatch(content, -1)
-	for _, match := range matches {
-		subTitle := strings.TrimSpace(match[1])
-		sql := strings.TrimSpace(match[2])
-		t.handleCommand(&sql)
-		if err := t.handleSpecialCommand(&sql, nil); err != nil {
-			return err
+	// 匹配所有二级标题及其内容
+	re = regexp.MustCompile(`(?m)^##\s*(.*?)\s*$`)
+	indices := re.FindAllStringSubmatchIndex(content, -1)
+
+	for i, idx := range indices {
+		subTitle := strings.TrimSpace(content[idx[2]:idx[3]])
+		var section string
+		if i+1 < len(indices) {
+			section = content[idx[1]:indices[i+1][0]]
+		} else {
+			section = content[idx[1]:]
 		}
-		t.sqlMap.Lock()
-		t.sqlMap.blocks[title+":"+subTitle] = sql
-		t.sqlMap.Unlock()
+
+		// 匹配 sql 代码块（只取第一个）
+		sql := ""
+		sqlRe := regexp.MustCompile("(?is)```sql(?:.*?)*\\n(.*?)```")
+		sqlMatch := sqlRe.FindStringSubmatch(section)
+		if len(sqlMatch) > 1 {
+			sql = strings.TrimSpace(sqlMatch[1])
+		}
+
+		// 匹配所有 go 代码块
+		goCodes := map[string]string{}
+		goRe := regexp.MustCompile("(?is)```(go(?:.*?)*)\\n(.*?)```")
+		goMatches := goRe.FindAllStringSubmatch(section, -1)
+		for _, gm := range goMatches {
+			if len(gm) > 1 {
+				codeName := strings.TrimSpace(gm[1][2:])
+				if codeName == "" {
+					continue
+				}
+				goCodes[codeName] = strings.TrimSpace(gm[2])
+			}
+		}
+
+		// 这里可以处理 sql 和 goCodes
+		if sql != "" {
+			t.handleCommand(&sql)
+			if err := t.handleSpecialCommand(&sql, nil); err != nil {
+				return err
+			}
+			t.sqlMap.Lock()
+			t.sqlMap.blocks[title+":"+subTitle] = sql
+			t.sqlMap.Unlock()
+		}
+		if len(goCodes) > 0 {
+			t.sqlMap.Lock()
+			t.sqlMap.goCodes[title+":"+subTitle] = goCodes
+			t.sqlMap.Unlock()
+		}
 	}
 	return nil
 }
@@ -433,6 +471,18 @@ func (t *SqlRender) getSql(title, subTitle string) string {
 	t.sqlMap.RLock()
 	defer t.sqlMap.RUnlock()
 	if sql, ok := t.sqlMap.blocks[title+":"+subTitle]; ok {
+		// 如果有go代码，需要先执行
+		if goCodes, ok := t.sqlMap.goCodes[title+":"+subTitle]; ok {
+			var buf strings.Builder
+			for name, goCode := range goCodes {
+				buf.WriteString("{{\n")
+				buf.WriteString(fmt.Sprintf("%s := func(){\n", name))
+				buf.WriteString(goCode)
+				buf.WriteString("\n}\n")
+				buf.WriteString("}}\n")
+			}
+			sql = buf.String() + sql
+		}
 		return sql
 	}
 	return ""
@@ -479,6 +529,7 @@ func NewSqlRender() *SqlRender {
 		sqlContext: &sqlContext{},
 		sqlMap: &sqlBlocks{
 			blocks:    map[string]string{},
+			goCodes:   map[string]map[string]string{},
 			constants: map[int]string{},
 		},
 	}

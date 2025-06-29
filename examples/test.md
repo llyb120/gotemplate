@@ -107,6 +107,7 @@ and c = 1 and d = '234' --# val a $$ val b
 
 
 ## test_run_code
+补充prev指标
 ```go prev
 for i, v := range _params {
     if v == Date {
@@ -115,11 +116,15 @@ for i, v := range _params {
 }
 echo(_sql, _params)
 ```
+
 ```sql
 select
 --# slot a
-case when date > '2025-01-01' then '1' else '2' end as a --# val Date by '2025-01-01'
+sum(case when date > '2025-01-01' then digitalRevenue end) as digitalRevenue --# val Date by '2025-01-01'
 --# end
+
 --# prev()
-from ok
+from mscience
+where date > '2024-01-01'
 ```
+
