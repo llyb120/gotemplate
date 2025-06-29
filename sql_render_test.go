@@ -103,6 +103,19 @@ func TestTrim(t *testing.T) {
 	t.Log(sql, params)
 }
 
+func TestRunCode(t *testing.T) {
+	render := initRender(t)
+
+	sql, params, err := render.GetSql("test", "test_run_code", map[string]any{
+		"Date":     "2025-01-01",
+		"PrevDate": "2024-01-01",
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(sql, params)
+}
+
 func initRender(t *testing.T) *SqlRender {
 	var g ErrGroup
 	dir := "./examples"

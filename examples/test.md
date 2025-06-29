@@ -104,3 +104,22 @@ and c = 1 and d = '234' --# val a $$ val b
     --# redo ccc if true
     --# redo ccc if false
 ```
+
+
+## test_run_code
+```go prev
+for i, v := range _params {
+    if v == Date {
+        _params[i] = PrevDate
+    }
+}
+echo(_sql, _params)
+```
+```sql
+select
+--# slot a
+case when date > '2025-01-01' then '1' else '2' end as a --# val Date by '2025-01-01'
+--# end
+--# prev()
+from ok
+```

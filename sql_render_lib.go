@@ -127,11 +127,20 @@ func (t *SqlRender) lib() map[string]any {
 				return ""
 			}
 			ctx.slotHistories[len(ctx.slotHistories)-1][name] = code
+			// 当前的params
+			prevParams := len(ctx.params)
 			res, err := t.engine.doRender(ctx.inters[len(ctx.inters)-1], code)
 			if err != nil {
 				ctx.err = err
 				return ""
 			}
+			// 找到新添加的params
+			newParams := make([]any, len(ctx.params)-prevParams)
+			copy(newParams, ctx.params[prevParams:])
+			// ctx.slotRenderedCodes = append(ctx.slotRenderedCodes, code)
+			// ctx.slotRenderedParams = append(ctx.slotRenderedParams, newParams)
+			ctx.inters[len(ctx.inters)-1].Set("_sql", res)
+			ctx.inters[len(ctx.inters)-1].Set("_params", newParams)
 			if err := t.handlePhase(ctx, ON_SLOT_RENDER, SqlHandlerContext{
 				Name:    name,
 				Context: ctx.inters[len(ctx.inters)-1].GetGlobal(),
@@ -141,6 +150,7 @@ func (t *SqlRender) lib() map[string]any {
 			}
 			return res
 		},
+		// redo已经被弃用，请使用slot
 		"redo": func(name string, params map[string]any) string {
 			ctx := t.sqlContext.GetContext()
 			if len(ctx.slotHistories) == 0 {
@@ -205,11 +215,60 @@ func (t *SqlRender) lib() map[string]any {
 			// 最后要补上空格以防报错
 			return fmt.Sprintf("\n %s \n", res)
 		},
+
+		// 增强函数
+		// "appendParams": func(params []any) string {
+		// 	ctx := t.sqlContext.GetContext()
+		// 	ctx.params = append(ctx.params, params...)
+		// 	return ""
+		// },
+		"echo": func(content string, params ...any) {
+			ctx := t.sqlContext.GetContext()
+			if len(params) > 0 {
+				for _, param := range params {
+					if reflect.TypeOf(param).Kind() == reflect.Slice {
+						iter := reflect.ValueOf(param)
+						for i := 0; i < iter.Len(); i++ {
+							ctx.params = append(ctx.params, iter.Index(i).Interface())
+						}
+					} else {
+						ctx.params = append(ctx.params, param)
+					}
+				}
+			}
+			buf := ctx.inters[len(ctx.inters)-1].Get("__code__")
+			if buf == nil {
+				// log
+				return
+			}
+			buffer, ok := buf.(*strings.Builder)
+			if !ok {
+				// log
+				return
+			}
+			buffer.WriteString(content)
+		},
+		// "date": func(date string) string {
+		// 	// 必须是合法的时间类型，否则返回空字符串
+		// 	// 暂时先按yyyy-MM-dd这样
+		// 	if len(date) != 10 {
+		// 		return ""
+		// 	}
+		// 	year, _ := strconv.Atoi(date[:4])
+		// 	month, _ := strconv.Atoi(date[5:7])
+		// 	day, _ := strconv.Atoi(date[8:10])
+		// 	return fmt.Sprintf("%d-%02d-%02d", year, month, day)
+		// },
 	}
 }
 
+// Deprecated
+// 该函数会导致模板代码非常难以维护，所以废弃
 func (t *SqlRender) handlePhase(ctx *sqlContextItem, phase SqlRenderPhase, context SqlHandlerContext, sql *string, args *[]any) error {
 	for _, handler := range ctx.handlers {
+		if handler == nil {
+			continue
+		}
 		if err := handler(phase, context, sql, args); err != nil {
 			return err
 		}
