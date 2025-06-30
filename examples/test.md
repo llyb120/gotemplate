@@ -1,5 +1,10 @@
 # test
 
+
+```go test
+_result = "kiss u"
+```
+
 ## sql1
 ```sql
 select * from table1
@@ -118,6 +123,10 @@ for i, v := range _params {
 _result = "hh"
 ```
 
+```go prev
+_result = "kiss u too"
+```
+
 ```sql
 select
 --# slot a
@@ -125,6 +134,7 @@ sum(case when date > '2025-01-01' then digitalRevenue end) as digitalRevenue --#
 --# end
 
 aaa --# prev() by aaa
+bbb --# test() by bbb
 from mscience
 where date > '2024-01-01'
 ```
