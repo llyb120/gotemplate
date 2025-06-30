@@ -43,6 +43,47 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 		return fmt.Errorf("%s 没有找到标题", fileName)
 	}
 	title := strings.TrimSpace(matches[0][1])
+
+	// 先找一级标题的位置
+	titleRe := regexp.MustCompile(`(?m)^#\s*(.*?)\s*$`)
+	titleIndices := titleRe.FindAllStringSubmatchIndex(content, -1)
+
+	var titleSection string
+	if len(titleIndices) > 0 {
+		// 找第一个二级标题的位置
+		subTitleRe := regexp.MustCompile(`(?m)^##\s*(.*?)\s*$`)
+		subTitleIndices := subTitleRe.FindAllStringSubmatchIndex(content, -1)
+
+		if len(subTitleIndices) > 0 {
+			// 一级标题到第一个二级标题之间的内容
+			titleSection = content[titleIndices[0][1]:subTitleIndices[0][0]]
+		} else {
+			// 如果没有二级标题，取一级标题后的所有内容
+			titleSection = content[titleIndices[0][1]:]
+		}
+	}
+
+	// 提取一级标题下的通用 go 代码块
+	if titleSection != "" {
+		var key = title + ":$common"
+		goRe := regexp.MustCompile("(?is)```(go(?:.*?)*)\\n(.*?)```")
+		goMatches := goRe.FindAllStringSubmatch(titleSection, -1)
+		for _, gm := range goMatches {
+			if len(gm) > 1 {
+				codeName := strings.TrimSpace(gm[1][2:])
+				if codeName == "" {
+					continue
+				}
+				t.sqlMap.Lock()
+				if t.sqlMap.goCodes[key] == nil {
+					t.sqlMap.goCodes[key] = map[string]string{}
+				}
+				t.sqlMap.goCodes[key][codeName] = strings.TrimSpace(gm[2])
+				t.sqlMap.Unlock()
+			}
+		}
+	}
+
 	// 匹配所有二级标题及其内容
 	re = regexp.MustCompile(`(?m)^##\s*(.*?)\s*$`)
 	indices := re.FindAllStringSubmatchIndex(content, -1)
@@ -66,6 +107,7 @@ func (t *SqlRender) handleSingleFile(fileName string, content string) error {
 
 		// 匹配所有 go 代码块
 		goCodes := map[string]string{}
+		// 再添加该二级标题特有的 go 代码块
 		goRe := regexp.MustCompile("(?is)```(go(?:.*?)*)\\n(.*?)```")
 		goMatches := goRe.FindAllStringSubmatch(section, -1)
 		for _, gm := range goMatches {
@@ -472,8 +514,23 @@ func (t *SqlRender) getSql(title, subTitle string) string {
 	defer t.sqlMap.RUnlock()
 	if sql, ok := t.sqlMap.blocks[title+":"+subTitle]; ok {
 		// 如果有go代码，需要先执行
+		var buf *strings.Builder
+		if commonGoCodes, ok := t.sqlMap.goCodes[title+":$common"]; ok {
+			if buf == nil {
+				buf = &strings.Builder{}
+			}
+			for name, goCode := range commonGoCodes {
+				buf.WriteString("{{\n")
+				buf.WriteString(fmt.Sprintf("%s := func()(_result string){\n", name))
+				buf.WriteString(goCode)
+				buf.WriteString("\n}\n")
+				buf.WriteString("}}\n")
+			}
+		}
 		if goCodes, ok := t.sqlMap.goCodes[title+":"+subTitle]; ok {
-			var buf strings.Builder
+			if buf == nil {
+				buf = &strings.Builder{}
+			}
 			for name, goCode := range goCodes {
 				buf.WriteString("{{\n")
 				buf.WriteString(fmt.Sprintf("%s := func()(_result string){\n", name))
@@ -481,6 +538,8 @@ func (t *SqlRender) getSql(title, subTitle string) string {
 				buf.WriteString("\n}\n")
 				buf.WriteString("}}\n")
 			}
+		}
+		if buf != nil {
 			sql = buf.String() + sql
 		}
 		return sql
