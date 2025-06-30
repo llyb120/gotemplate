@@ -476,7 +476,7 @@ func (t *SqlRender) getSql(title, subTitle string) string {
 			var buf strings.Builder
 			for name, goCode := range goCodes {
 				buf.WriteString("{{\n")
-				buf.WriteString(fmt.Sprintf("%s := func(){\n", name))
+				buf.WriteString(fmt.Sprintf("%s := func()(_result string){\n", name))
 				buf.WriteString(goCode)
 				buf.WriteString("\n}\n")
 				buf.WriteString("}}\n")

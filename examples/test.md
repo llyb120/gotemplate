@@ -114,7 +114,8 @@ for i, v := range _params {
         _params[i] = PrevDate
     }
 }
-echo(_sql, _params)
+// echo(_sql, _params)
+_result = "hh"
 ```
 
 ```sql
@@ -123,7 +124,7 @@ select
 sum(case when date > '2025-01-01' then digitalRevenue end) as digitalRevenue --# val Date by '2025-01-01'
 --# end
 
---# prev()
+aaa --# prev() by aaa
 from mscience
 where date > '2024-01-01'
 ```
